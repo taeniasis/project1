@@ -27,6 +27,7 @@ pygame.key.set_repeat(1, 10)
 def draw_box(surf, color, pos):
     r = pygame.Rect((pos[0], pos[1]), (10,10))
     pygame.draw.rect(surf, color, r)
+
 #####################
 
 class Player_clientside:
@@ -35,6 +36,7 @@ class Player_clientside:
         self.x = 0
         self.y = 0
         self.order_queue = deque([])
+        
         
     def draw(self,surf):
         ### if self.x!=None and self.y!=None:
@@ -74,22 +76,40 @@ while running:
     ##### SWEEP THIS BULLSHIT UNDER THE RUG WITH A FUNCTION OR A CLASS
     ##### ALSO THE INPUT/ORDERS MAY BE BETTER INSIDE A PLAYER_CLIENTSIDE METHOD
     keys = pygame.key.get_pressed()
+
+    ord_move = ''
+    ord_shoot = ''
+    ord_bomb = ''
+    ord_focus = ''
+    ord_spare_2 = ''
     if keys[K_UP] and not (keys[K_LEFT] or keys[K_RIGHT] or keys[K_DOWN]):
-        orders.append('UP')
+        ord_move='UP'
     elif keys[K_DOWN] and not (keys[K_LEFT] or keys[K_RIGHT] or keys[K_UP]):
-        orders.append('DOWN')
+        ord_move='DOWN'
     elif keys[K_LEFT] and not (keys[K_UP] or keys[K_DOWN] or keys[K_RIGHT]):
-        orders.append('LEFT')
+        ord_move='LEFT'
     elif keys[K_RIGHT] and not (keys[K_UP] or keys[K_DOWN] or keys[K_LEFT]):
-        orders.append('RIGHT')
+        ord_move='RIGHT'
     elif keys[K_UP] and keys[K_LEFT]:
-        orders.append('UP-LEFT')
+        ord_move='UP-LEFT'
     elif keys[K_UP] and keys[K_RIGHT]:
-        orders.append('UP-RIGHT')
+        ord_move='UP-RIGHT'
     elif keys[K_DOWN] and keys[K_LEFT]:
-        orders.append('DOWN-LEFT')
+        ord_move='DOWN-LEFT'
     elif keys[K_DOWN] and keys[K_RIGHT]:
-        orders.append('DOWN-RIGHT')
+        ord_move='DOWN-RIGHT'
+
+    if keys[K_z]:
+        ord_shoot='SHOOT'
+
+    if keys[K_x]:
+        ord_shoot='BOMB'
+
+    if keys[K_LSHIFT]:
+        ord_focus='FOCUS'
+
+    
+    orders.append('{}+{}+{}+{}+{}'.format(ord_move, ord_shoot, ord_bomb, ord_focus, ord_spare_2))
 
     ####### PUT THIS IN A SEPARATE FUNCTION - THOSE SPAGHETTI ARE PAINFUL TO LOOK AT
     surface.fill((64,128,128))
@@ -98,7 +118,7 @@ while running:
     try:
         order = orders.popleft()
     except:
-        order = '0'  
+        order = '++++'  
     client_socket.send(order.encode())
     ################
 
