@@ -103,7 +103,7 @@ while running:
         ord_shoot='SHOOT'
 
     if keys[K_x]:
-        ord_shoot='BOMB'
+        ord_bomb='BOMB'
 
     if keys[K_LSHIFT]:
         ord_focus='FOCUS'

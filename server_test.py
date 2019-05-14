@@ -36,23 +36,27 @@ pygame.key.set_repeat(1, 10)
 ##    pygame.draw.circle(surf, color, pos, 5)
 ##########################
 
-
-class Bullet_tracker_serverside:
+class Projectile_tracker_serverside:
     def __init__(self):
-        self.bullets = deque([])
+        self.bullets = deque([]) ## each bullet is (x,y,vx,vy)
+        self.bombs=[] ## each bomb is x,y,R,ticks
+        self.sprites = []
         self.side = 4
         
 
     def spawn_random(self):
         x = random.randrange(0, SCREEN_WIDTH)
-        y = random.randrange(0, SCREEN_HEIGHT/2)
+        y = random.randrange(0, SCREEN_HEIGHT/5)
         vx = random.randrange(-3,3)
-        vy = random.randrange(0, 5)
+        vy = random.randrange(5, 10)
         self.bullets.append([x,y,vx,vy])
 
     def spawn_set(self,x,y,vx,vy):
         self.bullets.append([x,y,vx,vy])
-        
+
+    def add_bomb(self,bomb):
+        self.bombs.append(bomb)            
+    
     def update(self):
         i = 0
         while i<len(self.bullets):
@@ -63,10 +67,27 @@ class Bullet_tracker_serverside:
                 self.bullets.remove(bullet)
             else:
                i+=1
+
+        new_bombs=[]
+        for bomb in self.bombs:
+            x, y, R, ticks = bomb
+            i = 0
+            while i<len(self.bullets):
+                bullet = self.bullets[i]
+                if (bullet[0]-x)**2+(bullet[1]-y)**2<R**2:
+                    self.bullets.remove(bullet)
+                else:
+                    i+=1
+            if ticks>1:
+                new_bombs.append((x,y,R,ticks-1))
+        self.bombs=new_bombs
+
             
     def draw(self,surf):
         for bullet in self.bullets:
-            pygame.draw.circle(surf, (255,0,128), (bullet[0], bullet[1]), 5)
+            pygame.draw.circle(surf, (100,0,100), (bullet[0], bullet[1]), 5)
+        for bomb in self.bombs:
+            pygame.draw.circle(surf, (100,100,100), (bomb[0], bomb[1]), bomb[2])
             
 
     def hit_player(self, player_hitbox):  ### player_hitbox is a square with coordinates of player, fixed side
@@ -88,19 +109,35 @@ class Player_serverside:
         self.lives = 3
         self.speed = 5
         self.gauge = 0
+        self.invincible = False
+        self.iframes = 0
+        self.bombs = 5
 
         self.surf = surf
 
+
     def fire_trapezoid(self):
         pygame.draw.polygon(self.surf, (40,40,40), [(self.x-5, self.y-10),(self.x+5, self.y-10),(self.x+30, self.y-50),(self.x-30, self.y-50)])
-        
+
+    def bomb_test(self, bullet_tracker):
+        if self.bombs>0:
+            self.bombs-=1
+            bullet_tracker.add_bomb((int(self.x), int(self.y), 200, 90))
+                                
     def get_hitbox(self):
         side = 8
-        return pygame.Rect((self.x-side//2, self.y-side//2), (side, side))
+        if self.iframes==0:
+            return pygame.Rect((self.x-side//2, self.y-side//2), (side, side))
+        else:
+            return pygame.Rect((-100,-100), (0,0))
     
     def draw(self):
         r = pygame.Rect((self.x-5, self.y-10), (10,20))
-        pygame.draw.rect(self.surf, (20,0,0), r)
+        if self.iframes==0:
+            pygame.draw.rect(self.surf, (20,0,0), r)
+        else:
+            pygame.draw.rect(self.surf, (100,100,100), r)
+            self.iframes-=1
 
     def recv_orders(self, orders):
         '''
@@ -110,7 +147,7 @@ class Player_serverside:
         '''
         self.order_queue.extend(orders)
 
-    def execute_order(self):  ### MAKE EACH ORDER A TUPLE OF MOVE+SHOOT+GAIN PTS+BOMB+WIN/LOSE
+    def execute_order(self, bullet_tracker):
         '''
             get an order from queue and execute it
         '''
@@ -147,6 +184,9 @@ class Player_serverside:
         if ord_shoot=='SHOOT':
             self.fire_trapezoid()
 
+        if ord_bomb=='BOMB':
+            self.bomb_test(bullet_tracker)
+
 
                 
         
@@ -162,7 +202,7 @@ class Player_serverside:
 ####################
 running = True
 player = Player_serverside(surface)
-bullet_tracker = Bullet_tracker_serverside()
+bullet_tracker = Projectile_tracker_serverside()
 
 orders = deque([])
 
@@ -193,18 +233,23 @@ while running:
     except:
         order = ['0']
     player.recv_orders(order)
-    player.execute_order()
+    player.execute_order(bullet_tracker)
     
     if bullet_tracker.hit_player(player.get_hitbox()):
-        print('HIT')
+        player.iframes = 30
+##        pygame.quit()
+##        sys.exit()
+##        server_socket.close()
 
     ####### MORE SHIT TO ORGANIZE
-    if random.random()<0.1:
+    if random.random()<0.4:
         bullet_tracker.spawn_random()
         #bullet_tracker.spawn_set(100,100,0,0)
     bullet_tracker.update()
 
     player.send_status(client)
+
+    player.draw()
     ###############
 
 
