@@ -82,6 +82,8 @@ while running:
     ord_bomb = ''
     ord_focus = ''
     ord_spare_2 = ''
+
+    
     if keys[K_UP] and not (keys[K_LEFT] or keys[K_RIGHT] or keys[K_DOWN]):
         ord_move='UP'
     elif keys[K_DOWN] and not (keys[K_LEFT] or keys[K_RIGHT] or keys[K_UP]):
@@ -135,3 +137,4 @@ while running:
     
     fpsClock.tick(FPS)
     
+client_socket.close()
