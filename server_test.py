@@ -45,7 +45,7 @@ class Projectile_tracker_serverside:
         self.bombs=[] ## each bomb is (x,y,R,ticks)
         self.enemies = [] ## each enemy is (x,y,x0,y0,w)
         self.side = 4
-        
+
 
     def spawn_random_bullet(self):
         x = random.randrange(0, SCREEN_WIDTH)
@@ -64,8 +64,8 @@ class Projectile_tracker_serverside:
     def spawn_enemy_circle_set(self,x,y,x0,y0,w):
         self.enemies.append((x,y,x0,y0,w))
 
-        
-    
+
+
     def update(self):
         i = 0
         while i<len(self.bullets):
@@ -105,12 +105,12 @@ class Projectile_tracker_serverside:
             if enemy[0]<-10 or enemy[0]>SCREEN_WIDTH+10 or enemy[1]<-10 or enemy[1]>SCREEN_HEIGHT+10:
                 self.enemies.remove(enemy)
             else:
-                i+=1 
-                
-            
-            
+                i+=1
 
-            
+
+
+
+
     def draw(self,surf):
         for bullet in self.bullets:
             pygame.draw.circle(surf, (100,0,100), (bullet[0], bullet[1]), 5)
@@ -118,13 +118,27 @@ class Projectile_tracker_serverside:
             pygame.draw.circle(surf, (100,100,100), (bomb[0], bomb[1]), bomb[2])
         for enemy in self.enemies:
             pygame.draw.circle(surf, (200,200,0), (int(enemy[0]), int(enemy[1])), 10)
-            
+
+
+
+    def send_status(self, connection):
+
+        package = ', '.join(map(str,self.bullets))
+        connection.send(package.encode())
+
+        package = ', '.join(map(str,self.bombs))
+        connection.send(package.encode())
+
+        package = ', '.join(map(str,self.enemies))
+        connection.send(package.encode())
+
+
 
     def hit_player(self, player_hitbox):  ### player_hitbox is a square with coordinates of player, fixed side
         bullet_hitboxes = [pygame.Rect(( bullet[0]-self.side//2, bullet[1]-self.side//2), (self.side,self.side)) for bullet in self.bullets]
         return bool(player_hitbox.collidelist(bullet_hitboxes)+1)
 
-    
+
 
 
 
@@ -136,14 +150,14 @@ class Player_serverside:
         self.x = SCREEN_WIDTH // 2
         self.y = SCREEN_HEIGHT // 2
         self.order_queue = deque([])
-        
+
         self.lives = 3
         self.speed = 5
         self.gauge = 0
         self.iframes = 0
         self.bomb_timeout = 0
         self.bombs = 5
-        
+
         self.shot_type = shot_type
         self.bullet_tracker = bullet_tracker
         self.surf = surf
@@ -162,7 +176,7 @@ class Player_serverside:
             self.bombs-=1
             self.bullet_tracker.add_bomb((int(self.x), int(self.y), 200, 90))
 
-                                
+
     def get_hitbox(self):
         side = 8
         if self.iframes==0:
@@ -171,7 +185,7 @@ class Player_serverside:
             return pygame.Rect((-100,-100), (0,0))
 
 
-    
+
     def draw(self):
         r = pygame.Rect((self.x-5, self.y-10), (10,20))
         if self.iframes==0:
@@ -198,7 +212,7 @@ class Player_serverside:
 
         if ord_focus=='FOCUS':
             self.speed = 2
-        
+
         if ord_move=='UP':
             self.y -= self.speed
         elif ord_move=='DOWN':
@@ -231,17 +245,17 @@ class Player_serverside:
 
         if self.bomb_timeout>0:
             self.bomb_timeout-=1
-                
-        
+
+
 
     def send_status(self, connection):
         '''
             send your own status through connection
         '''
-        
+
         package = str(self.x) + ',' + str(self.y)
         connection.send(package.encode())
- 
+
 ####################
 running = True
 
@@ -268,10 +282,10 @@ while running:
     ######### PUT THIS IN A SEPARATE FUNCTION - THOSE SPAGHETTI ARE PAINFUL TO LOOK AT
     ##### ALSO THE INPUT/ORDERS MAY BE BETTER INSIDE A PLAYER_SERVERSIDE METHOD
     surface.fill((64,128,128))
-    
+
     player.draw()
     bullet_tracker.draw(surface)
-    
+
     orders.extend([client.recv(512).decode('utf8')])
     try:
         order = [orders.popleft()]
@@ -280,7 +294,7 @@ while running:
     player.recv_orders(order)
     player.execute_order()
 
-    
+
     if bullet_tracker.hit_player(player.get_hitbox()):
         player.iframes = 30
 ##        pygame.quit()
@@ -296,6 +310,8 @@ while running:
     bullet_tracker.update()
 
     player.send_status(client)
+    bullet_tracker.send_status(client)
+
 
     player.draw()
     ###############
@@ -303,12 +319,12 @@ while running:
 
 
     #######
-    
+
 
     ##### THIS CRAP IS JUST WEIRD
     screen.blit(surface, (0,0))
     pygame.display.flip()
-    
+
     fpsClock.tick(FPS)
 
 server_socket.close()
