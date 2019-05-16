@@ -46,8 +46,6 @@ class Top_tracker:
         self.middle.fill((0,100,100))
         self.right.fill((0,0,128))
 
-
-        #self.player.draw(self.left)
         self.NPC_tracker.draw(self.left)
 
         self.player.draw(self.left)
@@ -59,19 +57,25 @@ class Top_tracker:
         
         if self.NPC_tracker.hit_player(self.player.get_hitbox()):
             self.player.iframes = 30
-        
-        if random.random()<0.4:
+
+        if self.player.firing:
+            self.NPC_tracker.add_shot(((10,10), self.player.x, self.player.y, 0, -10))
+        if random.random()<0.4:   #### CRAM THIS SHIT INTO A METHOD
             self.NPC_tracker.spawn_random_bullet()
-        if random.random()<0.01:
-            self.NPC_tracker.spawn_enemy_circle_set(500,200,201,201,0.01)
+        if random.random()<0.2:  ##### THIS SHIT TOO
+            self.NPC_tracker.spawn_enemy_circle_set(200,100,0,0,0.005)
 
         self.player.send_status(self.client)
 
 class NPC_tracker_serverside:
     def __init__(self):
+        self.player_shots = [] ## a shot is ((size_x, size_y), x, y, vx, vy)
         self.bullets = deque([]) ## each bullet is (x,y,vx,vy)
         self.bombs=[] ## each bomb is (x,y,R,ticks)
-        self.enemies = [] ## each enemy is (x,y,x0,y0,w)
+        self.delay_bombs=[] ### each delay bomb is (x,y,R,ticks,delay)
+        self.enemies = [] ## each enemy is (x,y,x0,y0,w,hp)
+
+        self.enm_side = 8
         self.side = 4
         
 
@@ -89,24 +93,36 @@ class NPC_tracker_serverside:
     def add_bomb(self,bomb):
         self.bombs.append(bomb)
 
-    def spawn_enemy_circle_set(self,x,y,x0,y0,w):
-        self.enemies.append((x,y,x0,y0,w))
+    def add_shot(self,shot):
+        self.player_shots.append(shot)
 
-        
-    
-    def update(self):
-        i = 0
+    def spawn_enemy_circle_set(self,x,y,x0,y0,w):
+        hp = 2
+        self.enemies.append((x,y,x0,y0,w,hp))
+
+            
+     
+    def update(self): #### REPLACE THE BOUNDARY COLLISIONS WITH ADDED CUSTOMIZABLE BOUNDARY COORDINATES FOR 2 LAYERS
+        ### IM PRETTY SURE THIS PIECE OF CRAP VIOLATES THE GENEVA CONVENTION
+        ### THIS SHIT IS A SUPERFUND SITE NOW
+        ### EITHER WAY YOU SHOULD PUT IT SOMEWHERE ELSE
+        upd_bullets = []
+        for bullet in self.bullets:
+            x,y,vx,vy = bullet
+            x+=vx
+            y+=vy
+            upd_bullets.append((x,y,vx,vy))
+        self.bullets = upd_bullets
+        i=0
         while i<len(self.bullets):
             bullet = self.bullets[i]
-            bullet[0]+=bullet[2]
-            bullet[1]+=bullet[3]
             if bullet[0]<0 or bullet[0]>SCREEN_WIDTH or bullet[1]<0 or bullet[1]>SCREEN_HEIGHT:
                 self.bullets.remove(bullet)
             else:
-               i+=1
+                i+=1
 
 
-        new_bombs=[]
+        upd_bombs=[]
         for bomb in self.bombs:
             x, y, R, ticks = bomb
             i = 0
@@ -116,47 +132,127 @@ class NPC_tracker_serverside:
                     self.bullets.remove(bullet)
                 else:
                     i+=1
+            
             if ticks>1:
-                new_bombs.append((x,y,R,ticks-1))
-        self.bombs=new_bombs
+                upd_bombs.append((x,y,R,ticks-1))
+        self.bombs=upd_bombs
 
 
-        new_enemies = []
+        upd_enemies = []
         for enemy in self.enemies:
-            x,y,x0,y0,w = enemy
+            x,y,x0,y0,w,hp = enemy
             x,y = circle_move(x,y,x0,y0,w)
-            new_enemies.append((x,y,x0,y0,w))
-        self.enemies = new_enemies
+            upd_enemies.append((x,y,x0,y0,w,hp))
+        self.enemies = upd_enemies
         i=0
         while i<len(self.enemies):
             enemy = self.enemies[i]
-            if enemy[0]<-10 or enemy[0]>SCREEN_WIDTH+10 or enemy[1]<-10 or enemy[1]>SCREEN_HEIGHT+10:
+            if enemy[0]<0 or enemy[0]>SCREEN_WIDTH or enemy[1]<0 or enemy[1]>SCREEN_HEIGHT:
                 self.enemies.remove(enemy)
+            if enemy[5]<=0:
+                try:
+                    self.enemies.remove(enemy)
+                except:
+                    print('FUCK')
+                self.delay_bombs.append((enemy[0], enemy[1], 20, 4, 4))
             else:
-                i+=1 
+                i+=1
+
+                
+                
+        enm_side = self.enm_side
+        
+        upd_shots = []
+        for shot in self.player_shots:
+            kind, x, y, vx, vy = shot
+            x += vx
+            y += vy
+            upd_shots.append((kind,x,y,vx,vy))
+        self.player_shots = upd_shots
+        
+        i=0
+        while i<len(self.player_shots):
+            shot = self.player_shots[i]
+            if shot[1]<0 or shot[1]>SCREEN_WIDTH or shot[2]<0 or shot[2]>SCREEN_HEIGHT:
+                self.player_shots.remove(shot)
+            else:
+                i+=1
+                
+                enemy_hitboxes = [pygame.Rect((enemy[0]-enm_side//2, enemy[1]-enm_side//2), (enm_side,enm_side)) for enemy in self.enemies]
+                shot_hitbox = pygame.Rect((shot[1]-shot[0][0]//2, shot[2]-shot[0][1]//2),(shot[0][0], shot[0][1]))
+
+                a = shot_hitbox.collidelistall(enemy_hitboxes)
+                if a:
+                    self.player_shots.remove(shot)
+
+                upd_enemies = []
+                for j in range(len(self.enemies)):
+                    x,y,x0,y0,w,hp = self.enemies[j]
+                    if j in a:
+                        if hp-1<=0:
+                            self.delay_bombs.append((x,y,20,4,4))
+                        else:
+                            upd_enemies.append((x,y,x0,y0,w,hp-1))
+                    else:
+                        upd_enemies.append((x,y,x0,y0,w,hp))
+                self.enemies = upd_enemies
+
+        for bomb in self.bombs:
+            X,Y,R,ticks = bomb
+
+            upd_enemies = []
+            for x,y,x0,y0,w,hp in self.enemies:
+                if (X-x)**2+(Y-y)**2<R**2:
+                    upd_enemies.append((x,y,x0,y0,w,hp-2))
+                else:
+                    upd_enemies.append((x,y,x0,y0,w,hp))
+            self.enemies=upd_enemies
+
+        upd_delay_bombs = []
+        for x,y,R,ticks,delay in self.delay_bombs:
+            if delay>0:
+                upd_delay_bombs.append((x,y,R,ticks,delay-1))
+            else:
+                self.bombs.append((x,y,R,ticks))
+        self.delay_bombs = upd_delay_bombs
+            
+            
+            
+            
+            
 
             
     def draw(self, surf):
         for bullet in self.bullets:
-            pygame.draw.circle(surf, (100,0,100), (bullet[0], bullet[1]), 5)
+            pygame.draw.circle(surf, (100,0,100), (int(bullet[0]), int(bullet[1])), 5)
         for bomb in self.bombs:
-            pygame.draw.circle(surf, (100,100,100), (bomb[0], bomb[1]), bomb[2])
+            pygame.draw.circle(surf, (100,100,100), (int(bomb[0]), int(bomb[1])), bomb[2])
         for enemy in self.enemies:
             pygame.draw.circle(surf, (200,200,0), (int(enemy[0]), int(enemy[1])), 10)
+        for shot in self.player_shots:
+            pygame.draw.rect(surf, (255,255,255), pygame.Rect((shot[1]-6, shot[2]-6),(12,12)))
             
 
+    #def hit_enemies(self):
+        
+
     def hit_player(self, player_hitbox):  ### player_hitbox is a square with coordinates of player, fixed side
-        bullet_hitboxes = [pygame.Rect(( bullet[0]-self.side//2, bullet[1]-self.side//2), (self.side,self.side)) for bullet in self.bullets]
-        return bool(player_hitbox.collidelist(bullet_hitboxes)+1)
+        side = 4
+        enm_side = 6
+        bullet_hitboxes = [pygame.Rect(( bullet[0]-side//2, bullet[1]-side//2), (side,side)) for bullet in self.bullets]
+        enemy_hitboxes = [pygame.Rect((enemy[0]-enm_side//2, enemy[1]-enm_side//2), (enm_side,enm_side)) for enemy in self.enemies]
+
+        return bool((player_hitbox.collidelist(bullet_hitboxes)+1) + (player_hitbox.collidelist(enemy_hitboxes)+1))
 
     
-class Player_serverside:  ##### REMOVE ANY TRACES OF SURF SINCE THE SERVER DOES NOT NECESSARILY DISPLAY ANYTHING
+class Player_serverside:
     def __init__(self, bullet_tracker, surf, shot_type='trapezoid'):
         self.x = SCREEN_WIDTH // 4
         self.y = SCREEN_HEIGHT // 2
         self.order_queue = deque([])
         
         self.firing = False
+        self.cooldown = 0
         self.lives = 3
         self.speed = 5
         self.gauge = 0
@@ -190,7 +286,7 @@ class Player_serverside:  ##### REMOVE ANY TRACES OF SURF SINCE THE SERVER DOES 
         else:
             return pygame.Rect((-100,-100), (0,0))
 
-
+ 
     
     def draw(self, surf):
         r = pygame.Rect((self.x-5, self.y-10), (10,20))
@@ -199,8 +295,8 @@ class Player_serverside:  ##### REMOVE ANY TRACES OF SURF SINCE THE SERVER DOES 
         else:
             pygame.draw.rect(surf, (100,100,100), r)
             self.iframes-=1
-        if self.firing:
-            self.fire_trapezoid(surf)
+##        if self.firing:
+##            self.fire_trapezoid(surf)
 
     def recv_orders(self, orders):
         '''
@@ -245,8 +341,9 @@ class Player_serverside:  ##### REMOVE ANY TRACES OF SURF SINCE THE SERVER DOES 
             self.y += self.speed/1.42
             self.x += self.speed/1.42
 
-        if ord_shoot=='SHOOT':
+        if ord_shoot=='SHOOT' and self.cooldown==0:
             self.firing = True
+            self.cooldown = 5
 
         if ord_bomb=='BOMB' and self.bomb_timeout==0:
             self.bomb_timeout = 60
@@ -254,6 +351,9 @@ class Player_serverside:  ##### REMOVE ANY TRACES OF SURF SINCE THE SERVER DOES 
 
         if self.bomb_timeout>0:
             self.bomb_timeout-=1
+
+        if self.cooldown>0:
+            self.cooldown-=1
             
         self.speed = 5
 
