@@ -14,6 +14,13 @@ from pygame.locals import *
 ###### MAYBE PUT THESE OBJECTS INTO A SEPARATE FILE TOO
 ###### LIKE A MODULE
 
+##class Game_phase_tracker:
+##    def __init__(self):
+##        self.phase = 'main menu'
+##  THIS BULLSHIT I'LL USE FOR TRACKING WHAT KIND OF DISPLAY TO DRAW
+## AS IN: MAIN MENU, CHAR SELECT, GAME, RESULTS AND SO ON
+
+
 class Top_tracker:
     def __init__(self, NPC_tracker, Player, surf, left, right, middle, client):
         self.NPC_tracker = NPC_tracker
@@ -26,6 +33,10 @@ class Top_tracker:
         self.middle = middle
         
         self.client = client
+
+        pygame.font.init()
+        self.text = pygame.font.SysFont('Calibri', 20)
+        
 
 
     def get_order_to_player(self):
@@ -46,6 +57,9 @@ class Top_tracker:
         self.middle.fill((0,100,100))
         self.right.fill((0,0,128))
 
+        player_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(self.player.lives, self.player.bombs, self.NPC_tracker.score), False, (255,255,255))
+        self.left.blit(player_status, (10, 10))
+        
         self.NPC_tracker.draw(self.left)
 
         self.player.draw(self.left)
@@ -61,7 +75,7 @@ class Top_tracker:
         if self.player.firing:
             self.NPC_tracker.add_shot(((10,10), self.player.x, self.player.y, 0, -10))
         if random.random()<0.4:   #### CRAM THIS SHIT INTO A METHOD
-            self.NPC_tracker.spawn_random_bullet()
+            self.NPC_tracker.spawn_random_bullet_delay()
         if random.random()<0.2:  ##### THIS SHIT TOO
             self.NPC_tracker.spawn_enemy_circle_set(200,100,0,0,0.005)
 
@@ -70,10 +84,16 @@ class Top_tracker:
 class NPC_tracker_serverside:
     def __init__(self):
         self.player_shots = [] ## a shot is ((size_x, size_y), x, y, vx, vy)
+
+        self.spawning_bullets = [] ### each delay_bullet is (x,y,vx,vy, delay)
         self.bullets = deque([]) ## each bullet is (x,y,vx,vy)
+        
         self.bombs=[] ## each bomb is (x,y,R,ticks)
         self.delay_bombs=[] ### each delay bomb is (x,y,R,ticks,delay)
+        
         self.enemies = [] ## each enemy is (x,y,x0,y0,w,hp)
+
+        self.score = 0
 
         self.enm_side = 8
         self.side = 4
@@ -84,7 +104,15 @@ class NPC_tracker_serverside:
         y = random.randrange(0, SCREEN_HEIGHT/5)
         vx = random.randrange(-3,3)
         vy = random.randrange(5, 10)
-        self.bullets.append([x,y,vx,vy])
+        self.bullets.append((x,y,vx,vy))
+
+    def spawn_random_bullet_delay(self):
+        x = random.randrange(0, SCREEN_WIDTH)
+        y = random.randrange(0, SCREEN_HEIGHT/5)
+        vx = random.randrange(-3,3)
+        vy = random.randrange(3, 7)
+        delay = 6
+        self.spawning_bullets.append((x,y,vx,vy, delay))
 
 
     def spawn_set_bullet(self,x,y,vx,vy):
@@ -106,6 +134,15 @@ class NPC_tracker_serverside:
         ### IM PRETTY SURE THIS PIECE OF CRAP VIOLATES THE GENEVA CONVENTION
         ### THIS SHIT IS A SUPERFUND SITE NOW
         ### EITHER WAY YOU SHOULD PUT IT SOMEWHERE ELSE
+        upd_spawning_bullets=[]
+        for x,y,vx,vy,delay in self.spawning_bullets:
+            if delay>0:
+                upd_spawning_bullets.append((x,y,vx,vy,delay-1))
+            else:
+                self.bullets.append((x,y,vx,vy))
+        self.spawning_bullets = upd_spawning_bullets
+            
+
         upd_bullets = []
         for bullet in self.bullets:
             x,y,vx,vy = bullet
@@ -152,6 +189,7 @@ class NPC_tracker_serverside:
             if enemy[5]<=0:
                 try:
                     self.enemies.remove(enemy)
+                    self.score+=10
                 except:
                     print('FUCK')
                 self.delay_bombs.append((enemy[0], enemy[1], 20, 4, 4))
@@ -185,12 +223,14 @@ class NPC_tracker_serverside:
                 if a:
                     self.player_shots.remove(shot)
 
+                
                 upd_enemies = []
                 for j in range(len(self.enemies)):
                     x,y,x0,y0,w,hp = self.enemies[j]
                     if j in a:
                         if hp-1<=0:
                             self.delay_bombs.append((x,y,20,4,4))
+                            self.score+=10
                         else:
                             upd_enemies.append((x,y,x0,y0,w,hp-1))
                     else:
@@ -216,15 +256,13 @@ class NPC_tracker_serverside:
                 self.bombs.append((x,y,R,ticks))
         self.delay_bombs = upd_delay_bombs
             
-            
-            
-            
-            
 
             
     def draw(self, surf):
+        for sp_bul in self.spawning_bullets:
+            pygame.draw.circle(surf, (128,0,128), (int(sp_bul[0]), int(sp_bul[1])), 10)
         for bullet in self.bullets:
-            pygame.draw.circle(surf, (100,0,100), (int(bullet[0]), int(bullet[1])), 5)
+            pygame.draw.circle(surf, (255,0,255), (int(bullet[0]), int(bullet[1])), 5)
         for bomb in self.bombs:
             pygame.draw.circle(surf, (100,100,100), (int(bomb[0]), int(bomb[1])), bomb[2])
         for enemy in self.enemies:
