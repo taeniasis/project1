@@ -1,6 +1,6 @@
 #code part
 
-def code(twodimarr):
+def code1(twodimarr):
   pack = ''
   for k in twodimarr:
     part = ', '.join(map(str,k))
@@ -13,7 +13,7 @@ def code(twodimarr):
 
 #decode part
 
-def decode(pack):
+def decode1(pack):
   twodimarr = pack.split('; ')
   for i in range((len(twodimarr))):
     twodimarr[i] = twodimarr[i].split(', ')
