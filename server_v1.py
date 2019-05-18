@@ -22,33 +22,47 @@ from pygame.locals import *
 
 
 class Top_tracker:
-    def __init__(self, NPC_tracker, Player, surf, left, right, middle, client):
-        self.NPC_tracker = NPC_tracker
-        self.player = Player
-        self.orders = deque([])
+    def __init__(self, NPC_tracker_1, NPC_tracker_2, Player_1, surf, left, right, middle, client_1):
+        self.NPC_tracker_1 = NPC_tracker_1
+        self.NPC_tracker_2 = NPC_tracker_2
+        
+        self.player_1 = Player_1
+        self.orders_1 = deque([])
         
         self.surf = surf
         self.left = left
         self.right = right
         self.middle = middle
         
-        self.client = client
+        self.client_1 = client_1
 
+        self.difficulty = 0
         pygame.font.init()
         self.text = pygame.font.SysFont('Calibri', 20)
         
 
 
-    def get_order_to_player(self):
-        self.orders.extend([self.client.recv(512).decode('utf8')])
+    def get_order_to_players(self):
+        self.orders_1.extend([self.client_1.recv(512).decode('utf8')])
+##        self.orders_2.extend([self.client_2.recv(512).decode('utf8')])
         try:
-            order = [self.orders.popleft()]
+            order_1 = [self.orders_1.popleft()]
         except:
-            order = ['0']
-        
-        self.player.recv_orders(order)
-        self.player.execute_order()
+            order_1 = ['0']
 
+##        try:
+##            order_2 = [self.orders_2.popleft()]
+##        except:
+##            order_2 = ['0']
+##            
+        
+        self.player_1.recv_orders(order_1)
+        self.player_1.execute_order()
+
+##        self.player_2.recv_orders(order_2)
+##        self.player_2.execute_order()
+        
+    
     #def spawn_enemy_(...)
     #def spawn_bullet_(...)
 
@@ -57,66 +71,104 @@ class Top_tracker:
         self.middle.fill((0,100,100))
         self.right.fill((0,0,128))
 
-        player_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(self.player.lives, self.player.bombs, self.NPC_tracker.score), False, (255,255,255))
-        self.left.blit(player_status, (10, 10))
+        player_1_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(self.player_1.lives, self.player_1.bombs, self.NPC_tracker_1.score), False, (255,255,255))
+        self.left.blit(player_1_status, (10, 10))
+##        player_2_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(self.player_2.lives, self.player_2.bombs, self.NPC_tracker_2.score), False, (255,255,255))
+##        self.right.blit(player_2_status, (10, 10))
         
-        self.NPC_tracker.draw(self.left)
+        self.NPC_tracker_1.draw(self.left)
+        self.NPC_tracker_2.draw(self.right)
 
-        self.player.draw(self.left)
+        self.player_1.draw(self.left)
+##        self.player_2.draw(self.right)
     
     def main_loop(self):
-
-        self.NPC_tracker.update()
-        self.get_order_to_player()
+        self.NPC_tracker_1.update()
+        self.NPC_tracker_2.update()
+        self.get_order_to_players()
         
-        if self.NPC_tracker.hit_player(self.player.get_hitbox()):
-            self.player.iframes = 30
+        if self.NPC_tracker_1.hit_player(self.player_1.get_hitbox()):
+            self.player_1.iframes = 30
+##        if self.NPC_tracker_2.hit_player(self.player_2.get_hitbox()):
+##            self.player_2.iframes = 30
 
-        if self.player.firing:
-            self.NPC_tracker.add_shot(((10,10), self.player.x, self.player.y, 0, -10))
+        if self.player_1.firing:
+            self.NPC_tracker_1.add_shot(((10,10), self.player_1.x, self.player_1.y, 0, -10))
+##        if self.player_2.firing:
+##            self.NPC_tracker_2.add_shot(((10,10), self.player_2.x, self.player.y_2, 0, -10))
+            
         if random.random()<0.4:   #### CRAM THIS SHIT INTO A METHOD
-            self.NPC_tracker.spawn_random_bullet_delay()
-        if random.random()<0.2:  ##### THIS SHIT TOO
-            self.NPC_tracker.spawn_enemy_circle_set(200,100,0,0,0.005)
+            self.NPC_tracker_1.spawn_random_bullet_delay()
+        if random.random()<0.01:  ##### THIS SHIT TOO
+            CHOICE = random.random()
+            if CHOICE<0.125:
+                self.NPC_tracker_1.enemy_pattern_1_left()
+            if CHOICE>0.125 and CHOICE<0.25:
+                self.NPC_tracker_1.enemy_pattern_2_left()
+            if CHOICE>0.25 and CHOICE<0.375:
+                self.NPC_tracker_1.enemy_pattern_3_left()
+            if CHOICE>0.375 and CHOICE<0.5:
+                self.NPC_tracker_1.enemy_pattern_4_left()
+            if CHOICE>0.5 and CHOICE<0.625:
+                self.NPC_tracker_1.enemy_pattern_1_right()
+            if CHOICE>0.625 and CHOICE<0.75:
+                self.NPC_tracker_1.enemy_pattern_2_right()
+            if CHOICE>0.75 and CHOICE<0.875:
+                self.NPC_tracker_1.enemy_pattern_3_right()
+            if CHOICE>0.875:
+                self.NPC_tracker_1.enemy_pattern_4_right()
 
-        self.player.send_status(self.client)
+##        if random.random()<0.4:   
+##            self.NPC_tracker_2.spawn_random_bullet_delay()
+##        if random.random()<0.1: 
+##            self.NPC_tracker_2.spawn_enemy_circle_set(10,100, 200, 100, -0.005)
+
+        self.player_1.send_status(self.client_1)
+##        self.player_2.send_status(self.client_2)
 
 class NPC_tracker_serverside:
-    def __init__(self):
+    def __init__(self, PLAYER):
         self.player_shots = [] ## a shot is ((size_x, size_y), x, y, vx, vy)
 
-        self.spawning_bullets = [] ### each delay_bullet is (x,y,vx,vy, delay)
+        self.spawning_bullets = deque([]) ### each delay_bullet is (x,y,vx,vy, delay)
         self.bullets = deque([]) ## each bullet is (x,y,vx,vy)
         
-        self.bombs=[] ## each bomb is (x,y,R,ticks)
-        self.delay_bombs=[] ### each delay bomb is (x,y,R,ticks,delay)
+        self.bombs=deque([]) ## each bomb is (x,y,R,ticks)
+        self.delay_bombs=deque([]) ### each delay bomb is (x,y,R,ticks,delay)
         
-        self.enemies = [] ## each enemy is (x,y,x0,y0,w,hp)
+        self.enemies = deque([]) ## each enemy is (x,y,x0,y0,w,hp)
 
         self.score = 0
 
         self.enm_side = 8
         self.side = 4
-        
 
-    def spawn_random_bullet(self):
-        x = random.randrange(0, SCREEN_WIDTH)
-        y = random.randrange(0, SCREEN_HEIGHT/5)
-        vx = random.randrange(-3,3)
-        vy = random.randrange(5, 10)
-        self.bullets.append((x,y,vx,vy))
+        self.left = 0
+        self.right = SCREEN_WIDTH//2-50
+##        if PLAYER==1:
+##            self.left = 0
+##            self.right = SCREEN_WIDTH//2-50
+##        elif PLAYER==2:
+##            self.left = SCREEN_WIDTH//2+50
+##            self.right = SCREEN_WIDTH
+
+##    def spawn_random_bullet(self):
+##        x = random.randrange(0, SCREEN_WIDTH)
+##        y = random.randrange(0, SCREEN_HEIGHT/5)
+##        vx = random.randrange(-3,3)
+##        vy = random.randrange(5, 10)
+##        self.bullets.append((x,y,vx,vy))
 
     def spawn_random_bullet_delay(self):
-        x = random.randrange(0, SCREEN_WIDTH)
+        x = random.randrange(self.left, self.right)
         y = random.randrange(0, SCREEN_HEIGHT/5)
         vx = random.randrange(-3,3)
         vy = random.randrange(3, 7)
         delay = 6
         self.spawning_bullets.append((x,y,vx,vy, delay))
 
-
-    def spawn_set_bullet(self,x,y,vx,vy):
-        self.bullets.append([x,y,vx,vy])
+    def spawn_set_bullet_delay(self,x,y,vx,vy):
+        self.spawning_bullets.append((x,y,vx,vy,6))
 
     def add_bomb(self,bomb):
         self.bombs.append(bomb)
@@ -128,12 +180,88 @@ class NPC_tracker_serverside:
         hp = 2
         self.enemies.append((x,y,x0,y0,w,hp))
 
+    def enemy_pattern_1_left(self): # A LINE OF ENEMIES COMING FROM THE MIDDLE LEFT
+        self.enemies.extend([(0,SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, -0.0003, 2),
+                             (-30,SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, -0.0003, 2),
+                             (-60,SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, -0.0003, 2),
+                             (-90,SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, -0.0003, 2),
+                             (-120,SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, -0.0003, 2),
+                             (-150,SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, -0.0003, 2)])
+        
+    def enemy_pattern_1_right(self): # A LINE OF ENEMIES COMING FROM THE MIDDLE RIGHT
+        L = SCREEN_WIDTH//2-50
+        self.enemies.extend([(L,70+SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, 0.0003, 2),
+                             (L+30,70+SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, 0.0003, 2),
+                             (L+60,70+SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, 0.0003, 2),
+                             (L+90,70+SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, 0.0003, 2),
+                             (L+120,70+SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, 0.0003, 2),
+                             (L+150,70+SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, 0.0003, 2)])
+        
+
+    def enemy_pattern_2_left(self): ### AN ARC OF ENEMIES COMING FROM TOP LEFT
+        self.enemies.extend([(0, 0, SCREEN_WIDTH//3, 0, -0.005, 2),
+                             (2, -30, SCREEN_WIDTH//3, 0, -0.005, 2),
+                            (8, -60, SCREEN_WIDTH//3, 0, -0.005, 2),
+                            (14, -85, SCREEN_WIDTH//3, 0, -0.005, 2),
+                             (25, -110, SCREEN_WIDTH//3, 0, -0.005, 2),
+                             (35, -135, SCREEN_WIDTH//3, 0, -0.005, 2)])
+
+    def enemy_pattern_2_right(self): ### AN ARC OF ENEMIES COMING FROM TOP RIGHT
+        L = SCREEN_WIDTH//2-50
+        self.enemies.extend([(L, 0, L-SCREEN_WIDTH//3, 0, 0.005, 2),
+                             (L-2, -30, L-SCREEN_WIDTH//3, 0, 0.005, 2),
+                            (L-8, -60, L-SCREEN_WIDTH//3, 0, 0.005, 2),
+                            (L-14, -85, L-SCREEN_WIDTH//3, 0, 0.005, 2),
+                             (L-25, -110, L-SCREEN_WIDTH//3, 0, 0.005, 2),
+                             (L-35, -135, L-SCREEN_WIDTH//3, 0, 0.005, 2)])
+
+        
+    def enemy_pattern_3_left(self): ### AN ARC OF ENEMIES COMING FROM TOP LEFT GETTING CLOSER TO PLAYER
+        self.enemies.extend([(-30, -28, 0, SCREEN_HEIGHT//3, 0.01, 2),
+                             (0, -30, 0, SCREEN_HEIGHT//3, 0.01, 2),
+                             (30, -28, 0, SCREEN_HEIGHT//3, 0.01, 2),
+                             (60, -22, 0, SCREEN_HEIGHT//3, 0.01, 2),
+                             (83, -14, 0, SCREEN_HEIGHT//3, 0.01, 2),
+                             (114, 0, 0, SCREEN_HEIGHT//3, 0.01, 2)])
+
+        
+    def enemy_pattern_3_right(self): ### AN ARC OF ENEMIES COMING FROM TOP RIGHT GETTING CLOSER TO PLAYER
+        L = SCREEN_WIDTH//2-50
+        self.enemies.extend([(L+30, -28, L, SCREEN_HEIGHT//3, -0.01, 2),
+                             (L, -30, L, SCREEN_HEIGHT//3, -0.01, 2),
+                             (L-30, -28, L, SCREEN_HEIGHT//3, -0.01, 2),
+                             (L-60, -22, L, SCREEN_HEIGHT//3, -0.01, 2),
+                             (L-83, -14, L, SCREEN_HEIGHT//3, -0.01, 2),
+                             (L-114, 0, L, SCREEN_HEIGHT//3, -0.01, 2)])
+
+    def enemy_pattern_4_left(self): ### AN ARC OF ENEMIES COMING FROM LOWER LEFT
+        H = SCREEN_HEIGHT
+        self.enemies.extend([(0, H, SCREEN_WIDTH//3, H, 0.005, 2),
+                             (2, H+30, SCREEN_WIDTH//3, H, 0.005, 2),
+                            (8, H+60, SCREEN_WIDTH//3, H, 0.005, 2),
+                            (14, H+85, SCREEN_WIDTH//3, H, 0.005, 2),
+                             (25, H+110, SCREEN_WIDTH//3, H, 0.005, 2),
+                             (35, H+135, SCREEN_WIDTH//3, H, 0.005, 2)])
+
+    def enemy_pattern_4_right(self): ### AN ARC OF ENEMIES COMING FROM LOWER RIGHT
+        L = SCREEN_WIDTH//2-50
+        H = SCREEN_HEIGHT
+        self.enemies.extend([(L, H, L-SCREEN_WIDTH//3, H, -0.005, 2),
+                             (L-2, H+30, L-SCREEN_WIDTH//3, H, -0.005, 2),
+                            (L-8, H+60, L-SCREEN_WIDTH//3, H, -0.005, 2),
+                            (L-14, H+85, L-SCREEN_WIDTH//3, H, -0.005, 2),
+                             (L-25, H+110, L-SCREEN_WIDTH//3, H, -0.005, 2),
+                             (L-35, H+135, L-SCREEN_WIDTH//3, H, -0.005, 2)])
+        
+
             
      
-    def update(self): #### REPLACE THE BOUNDARY COLLISIONS WITH ADDED CUSTOMIZABLE BOUNDARY COORDINATES FOR 2 LAYERS
+    def update(self):
         ### IM PRETTY SURE THIS PIECE OF CRAP VIOLATES THE GENEVA CONVENTION
         ### THIS SHIT IS A SUPERFUND SITE NOW
         ### EITHER WAY YOU SHOULD PUT IT SOMEWHERE ELSE
+##        print(self.enemies)
+        
         upd_spawning_bullets=[]
         for x,y,vx,vy,delay in self.spawning_bullets:
             if delay>0:
@@ -153,7 +281,7 @@ class NPC_tracker_serverside:
         i=0
         while i<len(self.bullets):
             bullet = self.bullets[i]
-            if bullet[0]<0 or bullet[0]>SCREEN_WIDTH or bullet[1]<0 or bullet[1]>SCREEN_HEIGHT:
+            if bullet[0]<self.left or bullet[0]>self.right or bullet[1]<0 or bullet[1]>SCREEN_HEIGHT:
                 self.bullets.remove(bullet)
             else:
                 i+=1
@@ -184,7 +312,7 @@ class NPC_tracker_serverside:
         i=0
         while i<len(self.enemies):
             enemy = self.enemies[i]
-            if enemy[0]<0 or enemy[0]>SCREEN_WIDTH or enemy[1]<0 or enemy[1]>SCREEN_HEIGHT:
+            if enemy[0]<self.left-150 or enemy[0]>self.right+150 or enemy[1]<-150 or enemy[1]>SCREEN_HEIGHT+150:
                 self.enemies.remove(enemy)
             if enemy[5]<=0:
                 try:
@@ -192,7 +320,7 @@ class NPC_tracker_serverside:
                     self.score+=10
                 except:
                     print('FUCK')
-                self.delay_bombs.append((enemy[0], enemy[1], 20, 4, 4))
+                self.delay_bombs.append((enemy[0], enemy[1], 40, 4, 4))
             else:
                 i+=1
 
@@ -211,7 +339,7 @@ class NPC_tracker_serverside:
         i=0
         while i<len(self.player_shots):
             shot = self.player_shots[i]
-            if shot[1]<0 or shot[1]>SCREEN_WIDTH or shot[2]<0 or shot[2]>SCREEN_HEIGHT:
+            if shot[1]<self.left or shot[1]>self.right or shot[2]<0 or shot[2]>SCREEN_HEIGHT:
                 self.player_shots.remove(shot)
             else:
                 i+=1
@@ -229,7 +357,7 @@ class NPC_tracker_serverside:
                     x,y,x0,y0,w,hp = self.enemies[j]
                     if j in a:
                         if hp-1<=0:
-                            self.delay_bombs.append((x,y,20,4,4))
+                            self.delay_bombs.append((x,y,40,4,4))
                             self.score+=10
                         else:
                             upd_enemies.append((x,y,x0,y0,w,hp-1))
@@ -333,8 +461,6 @@ class Player_serverside:
         else:
             pygame.draw.rect(surf, (100,100,100), r)
             self.iframes-=1
-##        if self.firing:
-##            self.fire_trapezoid(surf)
 
     def recv_orders(self, orders):
         '''
@@ -434,9 +560,10 @@ surface_right.fill((0,0,128))
 pygame.key.set_repeat(1, 10)
 ########
 
-NPC_TRACKER = NPC_tracker_serverside()
-PLAYER = Player_serverside(NPC_TRACKER, surface_left, shot_type='trapezoid')
-TOP_TRACKER = Top_tracker(NPC_TRACKER, PLAYER, surface, surface_left, surface_right, surface_middle, client)
+NPC_TRACKER_1, NPC_TRACKER_2 = NPC_tracker_serverside(1), NPC_tracker_serverside(2)
+
+PLAYER_1 = Player_serverside(NPC_TRACKER_1, surface_left, shot_type='trapezoid')
+TOP_TRACKER = Top_tracker(NPC_TRACKER_1, NPC_TRACKER_2, PLAYER_1, surface, surface_left, surface_right, surface_middle, client)
 
 running=True
 while running:
@@ -446,12 +573,15 @@ while running:
             sys.exit()
             server_socket.close()
             running = False
-            break
     
     TOP_TRACKER.display_all()
     TOP_TRACKER.main_loop()
     screen.blit(surface, (0,0))
     pygame.display.flip()
+
+pygame.quit()
+sys.exit()
+server_socket.close()
 
 
 
