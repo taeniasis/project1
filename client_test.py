@@ -4,6 +4,7 @@ import sys
 import socket as sc
 
 from collections import deque
+from codndecode import decode1
 from pygame.locals import *
 
 
@@ -40,15 +41,12 @@ class Projectile_tracker_clientside:
 
 
     def recv_status(self, connection):
-        package = connection.recv(512).decode('utf8')
-        bullets = package.split(',')
-        self.bullets = deque(list(map(list, bullets)))
-        package = connection.recv(512).decode('utf8')
-        bombs = package.split(',')
-        self.bombs = list(map(list, bombs))
-        package = connection.recv(512).decode('utf8')
-        enemies = package.split(',')
-        self.enemies = list(map(list, enemies))
+        package = connection.recv(2048).decode('utf8')
+        self.bullets = deque(decode1(package))
+        package = connection.recv(2048).decode('utf8')
+        self.bombs = decode1(package)
+        package = connection.recv(2048).decode('utf8')
+        self.enemies = decode1(package)
 
 
     def draw(self,surf):

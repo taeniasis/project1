@@ -5,6 +5,7 @@ import random
 import socket as sc
 
 from misc_func import line_move, circle_move
+from codndecode import code1
 
 from collections import deque
 from pygame.locals import *
@@ -123,13 +124,13 @@ class Projectile_tracker_serverside:
 
     def send_status(self, connection):
 
-        package = ', '.join(map(str,self.bullets))
+        package = code1(self.bullets)
         connection.send(package.encode())
 
-        package = ', '.join(map(str,self.bombs))
+        package = code1(self.bombs)
         connection.send(package.encode())
 
-        package = ', '.join(map(str,self.enemies))
+        package = code1(self.enemies)
         connection.send(package.encode())
 
 
