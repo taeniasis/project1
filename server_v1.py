@@ -13,10 +13,82 @@ from pygame.locals import *
 
 ###### MAYBE PUT THESE OBJECTS INTO A SEPARATE FILE TOO
 ###### LIKE A MODULE
+SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
+FPS = 60
 
-##class Game_phase_tracker:
-##    def __init__(self):
-##        self.phase = 'main menu'
+class Game_phase_tracker:
+    def __init__(self):
+        pygame.init()
+        pygame.display.set_caption('SERVER')
+        fpsClock=pygame.time.Clock()
+
+
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.surface = pygame.Surface(self.screen.get_size())
+
+        self.surface_left = self.surface.subsurface(0,0,SCREEN_WIDTH//2-50, SCREEN_HEIGHT)
+        self.surface_middle = self.surface.subsurface(SCREEN_WIDTH//2-50, 0, 100, SCREEN_HEIGHT)
+        self.surface_right = self.surface.subsurface(SCREEN_WIDTH//2+50, 0, SCREEN_WIDTH//2-50, SCREEN_HEIGHT)
+
+        pygame.key.set_repeat(1, 10)
+        
+        self.phase = 'PREP'
+    def prep_phase(self):
+        title_text = pygame.font.SysFont('Calibri', 40)
+        first_text = title_text.render('Awaiting connection...', False, (255,255,255))
+    
+        self.surface.fill((0,128,128))
+        self.surface.blit(first_text, (SCREEN_WIDTH//2-100, SCREEN_HEIGHT//2))
+        self.screen.blit(self.surface, (0,0))
+
+        pygame.display.flip()
+
+        self.server_socket_1 = sc.socket()
+        self.server_socket_1.bind(('', 9101))
+        self.server_socket_1.listen(1)
+        self.client_1, self.client_address_1 = self.server_socket_1.accept()
+        self.phase='GAME'
+        
+    def game_phase(self):
+        NPC_TRACKER_1, NPC_TRACKER_2 = NPC_tracker_serverside(1), NPC_tracker_serverside(2)
+
+        PLAYER_1 = Player_serverside(NPC_TRACKER_1)
+        TOP_TRACKER = Top_tracker(NPC_TRACKER_1, NPC_TRACKER_2, PLAYER_1, self.surface, self.surface_left, self.surface_right, self.surface_middle, self.client_1)
+
+        while not TOP_TRACKER.loss:
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    sys.exit()
+                    self.server_socket.close()
+
+            if not TOP_TRACKER.loss:
+                TOP_TRACKER.display_all()
+                TOP_TRACKER.main_loop_progressive()
+                self.screen.blit(self.surface, (0,0))
+                pygame.display.flip()
+
+        self.phase='END'
+    def end_phase(self):
+        title_text = pygame.font.SysFont('Calibri', 40)
+        last_text = title_text.render('Player 1 lost', False, (255,255,255))
+
+        for i in range(300):
+            self.surface.fill((0,0,128))
+            self.surface.blit(last_text, (SCREEN_WIDTH//2-100, SCREEN_HEIGHT//2))
+            self.screen.blit(self.surface, (0,0))
+
+            pygame.display.flip()
+
+        
+        self.server_socket_1.close()
+        pygame.quit()
+        sys.exit()
+
+        
+        
+        
+        
 ##  THIS BULLSHIT I'LL USE FOR TRACKING WHAT KIND OF DISPLAY TO DRAW
 ## AS IN: MAIN MENU, CHAR SELECT, GAME, RESULTS AND SO ON
 
@@ -36,9 +108,11 @@ class Top_tracker:
         
         self.client_1 = client_1
 
-        self.difficulty = 0
+        self.clock = 0
+        self.loss = False
         pygame.font.init()
         self.text = pygame.font.SysFont('Calibri', 20)
+
         
 
 
@@ -68,13 +142,15 @@ class Top_tracker:
 
     def display_all(self):
         self.left.fill((128,0,0))
-        self.middle.fill((0,100,100))
+        self.middle.fill((0,0,0))
         self.right.fill((0,0,128))
 
         player_1_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(self.player_1.lives, self.player_1.bombs, self.NPC_tracker_1.score), False, (255,255,255))
         self.left.blit(player_1_status, (10, 10))
 ##        player_2_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(self.player_2.lives, self.player_2.bombs, self.NPC_tracker_2.score), False, (255,255,255))
 ##        self.right.blit(player_2_status, (10, 10))
+        diff_status = self.text.render('LEVEL:{:.3f}'.format(self.clock/3600), False, (255,255,255))
+        self.middle.blit(diff_status, (0,0))
         
         self.NPC_tracker_1.draw(self.left)
         self.NPC_tracker_2.draw(self.right)
@@ -82,24 +158,35 @@ class Top_tracker:
         self.player_1.draw(self.left)
 ##        self.player_2.draw(self.right)
     
-    def main_loop(self):
+    def main_loop(self, BULLET_PROB, BULLET_INIT, ENEMY_PROB):
+        self.clock+=1
+        if self.player_1.lives<=0:
+            self.loss = True
+            
         self.NPC_tracker_1.update()
         self.NPC_tracker_2.update()
         self.get_order_to_players()
         
-        if self.NPC_tracker_1.hit_player(self.player_1.get_hitbox()):
-            self.player_1.iframes = 30
+        if self.NPC_tracker_1.hit_player(self.player_1.get_hitbox()) and self.player_1.iframes<=0:
+            self.player_1.iframes = 120
+            self.player_1.lives-=1
+            self.NPC_tracker_1.add_bomb((self.player_1.x, self.player_1.y, 300, 30))
+
+        if self.NPC_tracker_1.score>self.NPC_tracker_1.bomb_score:
+            self.player_1.bombs+=1
+            self.NPC_tracker_1.bomb_score+=1000
+            
 ##        if self.NPC_tracker_2.hit_player(self.player_2.get_hitbox()):
 ##            self.player_2.iframes = 30
 
-        if self.player_1.firing:
+        if self.player_1.firing: ## add customizable shots for players
             self.NPC_tracker_1.add_shot(((10,10), self.player_1.x, self.player_1.y, 0, -10))
 ##        if self.player_2.firing:
 ##            self.NPC_tracker_2.add_shot(((10,10), self.player_2.x, self.player.y_2, 0, -10))
             
-        if random.random()<0.4:   #### CRAM THIS SHIT INTO A METHOD
-            self.NPC_tracker_1.spawn_random_bullet_delay()
-        if random.random()<0.01:  ##### THIS SHIT TOO
+        if random.random()<BULLET_PROB:   #### CRAM THIS SHIT INTO A METHOD
+            self.NPC_tracker_1.spawn_random_bullet_delay(BULLET_INIT[0],BULLET_INIT[1])
+        if random.random()<ENEMY_PROB:  ##### THIS SHIT TOO
             CHOICE = random.random()
             if CHOICE<0.125:
                 self.NPC_tracker_1.enemy_pattern_1_left()
@@ -118,6 +205,8 @@ class Top_tracker:
             if CHOICE>0.875:
                 self.NPC_tracker_1.enemy_pattern_4_right()
 
+
+
 ##        if random.random()<0.4:   
 ##            self.NPC_tracker_2.spawn_random_bullet_delay()
 ##        if random.random()<0.1: 
@@ -125,6 +214,20 @@ class Top_tracker:
 
         self.player_1.send_status(self.client_1)
 ##        self.player_2.send_status(self.client_2)
+
+    def main_loop_progressive(self):
+        if 4*self.clock/3600<=1:
+            self.main_loop(0.1, ((-2,2),(2,4)), 0.01)
+        elif 4*self.clock/3600>1 and 4*self.clock/3600<=2:
+            self.main_loop(0.2, ((-3,3),(2,4)), 0.01)
+        elif 4*self.clock/3600>2 and 4*self.clock/3600<=3:
+            self.main_loop(0.4, ((-3,3),(2,5)), 0.01)
+        elif 4*self.clock/3600>3 and 4*self.clock/3600<=4:
+            self.main_loop(0.6, ((-3,3),(2,5)), 0.01)
+        elif 4*self.clock/3600>4 and 4*self.clock/3600<=5:
+            self.main_loop(0.7, ((-3,3),(2,5)), 0.01)
+        else:
+            self.main_loop(0.7, ((-3,3),(3,7)), 0.01)
 
 class NPC_tracker_serverside:
     def __init__(self, PLAYER):
@@ -139,6 +242,7 @@ class NPC_tracker_serverside:
         self.enemies = deque([]) ## each enemy is (x,y,x0,y0,w,hp)
 
         self.score = 0
+        self.bomb_score = 1000
 
         self.enm_side = 8
         self.side = 4
@@ -159,11 +263,11 @@ class NPC_tracker_serverside:
 ##        vy = random.randrange(5, 10)
 ##        self.bullets.append((x,y,vx,vy))
 
-    def spawn_random_bullet_delay(self):
+    def spawn_random_bullet_delay(self, vx_r, vy_r):
         x = random.randrange(self.left, self.right)
         y = random.randrange(0, SCREEN_HEIGHT/5)
-        vx = random.randrange(-3,3)
-        vy = random.randrange(3, 7)
+        vx = random.randrange(vx_r[0],vx_r[1])
+        vy = random.randrange(vy_r[0], vy_r[1])
         delay = 6
         self.spawning_bullets.append((x,y,vx,vy, delay))
 
@@ -176,9 +280,9 @@ class NPC_tracker_serverside:
     def add_shot(self,shot):
         self.player_shots.append(shot)
 
-    def spawn_enemy_circle_set(self,x,y,x0,y0,w):
-        hp = 2
-        self.enemies.append((x,y,x0,y0,w,hp))
+##    def spawn_enemy_circle_set(self,x,y,x0,y0,w):
+##        hp = 2
+##        self.enemies.append((x,y,x0,y0,w,hp))
 
     def enemy_pattern_1_left(self): # A LINE OF ENEMIES COMING FROM THE MIDDLE LEFT
         self.enemies.extend([(0,SCREEN_HEIGHT//2, SCREEN_WIDTH//2, -5000, -0.0003, 2),
@@ -383,7 +487,7 @@ class NPC_tracker_serverside:
             else:
                 self.bombs.append((x,y,R,ticks))
         self.delay_bombs = upd_delay_bombs
-            
+
 
             
     def draw(self, surf):
@@ -412,9 +516,12 @@ class NPC_tracker_serverside:
 
     
 class Player_serverside:
-    def __init__(self, bullet_tracker, surf, shot_type='trapezoid'):
+    def __init__(self, bullet_tracker):
         self.x = SCREEN_WIDTH // 4
         self.y = SCREEN_HEIGHT // 2
+        
+        self.L = SCREEN_WIDTH//2-50
+        self.H = SCREEN_HEIGHT
         self.order_queue = deque([])
         
         self.firing = False
@@ -426,8 +533,6 @@ class Player_serverside:
         self.bomb_timeout = 0
         self.bombs = 5
         
-        
-        self.shot_type = shot_type
         self.bullet_tracker = bullet_tracker
 ##        self.surf = surf
 
@@ -459,8 +564,13 @@ class Player_serverside:
         if self.iframes==0:
             pygame.draw.rect(surf, (20,0,0), r)
         else:
-            pygame.draw.rect(surf, (100,100,100), r)
-            self.iframes-=1
+            if self.iframes%2==0 and self.iframes>20:
+                pygame.draw.rect(surf, (200,200,200), r)
+            elif self.iframes%2==1 and self.iframes>20:
+                pygame.draw.rect(surf, (20,0,0), r)
+            else:
+                pygame.draw.rect(surf, (75,75,75), r)
+            
 
     def recv_orders(self, orders):
         '''
@@ -471,6 +581,8 @@ class Player_serverside:
         self.order_queue.extend(orders)
 
     def execute_order(self):
+        H = self.H 
+        L = self.L 
         '''
             get an order from queue and execute it
 
@@ -484,24 +596,24 @@ class Player_serverside:
         if ord_focus=='FOCUS':
             self.speed = 2
         
-        if ord_move=='UP':
+        if ord_move=='UP' and self.y>5:
             self.y -= self.speed
-        elif ord_move=='DOWN':
+        elif ord_move=='DOWN' and self.y<H-5:
             self.y += self.speed
-        elif ord_move=='LEFT':
+        elif ord_move=='LEFT' and self.x>5:
             self.x -= self.speed
-        elif ord_move=='RIGHT':
+        elif ord_move=='RIGHT' and self.x<L-5:
             self.x += self.speed
-        elif ord_move=='UP-LEFT':
+        elif ord_move=='UP-LEFT' and self.y>5 and self.x>5:
             self.y -= self.speed/1.42
             self.x -= self.speed/1.42
-        elif ord_move=='UP-RIGHT':
+        elif ord_move=='UP-RIGHT' and self.y>5 and self.x<L-5:
             self.y -= self.speed/1.42
             self.x += self.speed/1.42
-        elif ord_move=='DOWN-LEFT':
+        elif ord_move=='DOWN-LEFT'and self.y<H-5 and self.x>5:
             self.y += self.speed/1.42
             self.x -= self.speed/1.42
-        elif ord_move=='DOWN-RIGHT':
+        elif ord_move=='DOWN-RIGHT' and self.y<H-5 and self.x<L-5:
             self.y += self.speed/1.42
             self.x += self.speed/1.42
 
@@ -518,8 +630,13 @@ class Player_serverside:
 
         if self.cooldown>0:
             self.cooldown-=1
+
+        if self.iframes>0:
+            self.iframes-=1
             
         self.speed = 5
+
+        
 
         
 
@@ -534,58 +651,62 @@ class Player_serverside:
 
 #### MAYBE SEPARATE THIS SHIT INTO CONFIG AND SETUP COMMANDS
 ###THEN PUT INTO SEPARATE FILE
-server_socket = sc.socket()
-server_socket.bind(('', 9101))
-server_socket.listen(1)
-client, client_address = server_socket.accept()
-
-
-FPS = 60
-pygame.init()
-pygame.display.set_caption('SERVER')
-fpsClock=pygame.time.Clock()
-
-SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-surface = pygame.Surface(screen.get_size())
-
-surface_left = surface.subsurface(0,0,SCREEN_WIDTH//2-50, SCREEN_HEIGHT)
-surface_middle = surface.subsurface(SCREEN_WIDTH//2-50, 0, 100, SCREEN_HEIGHT)
-surface_right = surface.subsurface(SCREEN_WIDTH//2+50, 0, SCREEN_WIDTH//2-50, SCREEN_HEIGHT)
-
-surface_left.fill((128,0,0))
-surface_middle.fill((0,100,100))
-surface_right.fill((0,0,128))
-
-pygame.key.set_repeat(1, 10)
+##server_socket = sc.socket()
+##server_socket.bind(('', 9101))
+##server_socket.listen(1)
+##client, client_address = server_socket.accept()
+##
+##
+##FPS = 60
+##pygame.init()
+##pygame.display.set_caption('SERVER')
+##fpsClock=pygame.time.Clock()
+##
+##SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
+##screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+##surface = pygame.Surface(screen.get_size())
+##
+##surface_left = surface.subsurface(0,0,SCREEN_WIDTH//2-50, SCREEN_HEIGHT)
+##surface_middle = surface.subsurface(SCREEN_WIDTH//2-50, 0, 100, SCREEN_HEIGHT)
+##surface_right = surface.subsurface(SCREEN_WIDTH//2+50, 0, SCREEN_WIDTH//2-50, SCREEN_HEIGHT)
+##
+##surface_left.fill((128,0,0))
+##surface_middle.fill((0,100,100))
+##surface_right.fill((0,0,128))
+##
+##pygame.key.set_repeat(1, 10)
 ########
 
-NPC_TRACKER_1, NPC_TRACKER_2 = NPC_tracker_serverside(1), NPC_tracker_serverside(2)
+##NPC_TRACKER_1, NPC_TRACKER_2 = NPC_tracker_serverside(1), NPC_tracker_serverside(2)
+##
+##PLAYER_1 = Player_serverside(NPC_TRACKER_1, surface_left, shot_type='trapezoid')
+##TOP_TRACKER = Top_tracker(NPC_TRACKER_1, NPC_TRACKER_2, PLAYER_1, surface, surface_left, surface_right, surface_middle, client)
+##
+##running=True
+##while running:
+##    for event in pygame.event.get():
+##        if event.type == QUIT:
+##            pygame.quit()
+##            sys.exit()
+##            server_socket.close()
+##            running = False
+##
+##    if not TOP_TRACKER.loss:
+##        TOP_TRACKER.display_all()
+##        TOP_TRACKER.main_loop_progressive()
+##        screen.blit(surface, (0,0))
+##        pygame.display.flip()
+##
+##pygame.quit()
+##sys.exit()
+##server_socket.close()
 
-PLAYER_1 = Player_serverside(NPC_TRACKER_1, surface_left, shot_type='trapezoid')
-TOP_TRACKER = Top_tracker(NPC_TRACKER_1, NPC_TRACKER_2, PLAYER_1, surface, surface_left, surface_right, surface_middle, client)
-
-running=True
-while running:
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            pygame.quit()
-            sys.exit()
-            server_socket.close()
-            running = False
-    
-    TOP_TRACKER.display_all()
-    TOP_TRACKER.main_loop()
-    screen.blit(surface, (0,0))
-    pygame.display.flip()
-
-pygame.quit()
-sys.exit()
-server_socket.close()
 
 
-
-
+a = Game_phase_tracker()
+a.prep_phase()
+a.game_phase()
+a.end_phase()
 
 
 
