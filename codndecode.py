@@ -13,7 +13,15 @@ def code1(twodimarr):
 
 #decode part
 
+def cooler_float(x):
+  if x=='':
+    return None
+  else:
+    return float(x)
+
 def decode1(pack):
+  if pack == '':
+    return []
   twodimarr = pack.split('; ')
   for i in range((len(twodimarr))):
     twodimarr[i] = twodimarr[i].split(', ')
