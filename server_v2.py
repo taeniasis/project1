@@ -167,8 +167,14 @@ class Top_tracker:
         if self.player_1.lives<=0:
             self.loss = True
             
-        self.NPC_tracker_1.update()
-        self.NPC_tracker_2.update()
+        sent_to_2 = self.NPC_tracker_1.update()
+        sent_to_1 = self.NPC_tracker_2.update()
+
+        for i in range(sent_to_2):
+            self.NPC_tracker_2.spawn_random_bullet_delay((-2,2),(2,4))
+        for i in range(sent_to_1):
+            self.NPC_tracker_1.spawn_random_bullet_delay((-2,2),(2,4))
+            
         self.get_order_to_players()
         
         if self.NPC_tracker_1.hit_player(self.player_1.get_hitbox()) and self.player_1.iframes<=0:
@@ -190,6 +196,8 @@ class Top_tracker:
             
         if random.random()<BULLET_PROB:   #### CRAM THIS SHIT INTO A METHOD
             self.NPC_tracker_1.spawn_random_bullet_delay(BULLET_INIT[0],BULLET_INIT[1])
+        if random.random()<BULLET_PROB:
+            self.NPC_tracker_2.spawn_random_bullet_delay(BULLET_INIT[0],BULLET_INIT[1])
         if random.random()<ENEMY_PROB:  ##### THIS SHIT TOO
             CHOICE = random.random()
             if CHOICE<0.125:
@@ -208,12 +216,28 @@ class Top_tracker:
                 self.NPC_tracker_1.enemy_pattern_3_right()
             if CHOICE>0.875:
                 self.NPC_tracker_1.enemy_pattern_4_right()
+        if random.random()<ENEMY_PROB:  ##### THIS SHIT TOO
+            CHOICE = random.random()
+            if CHOICE<0.125:
+                self.NPC_tracker_2.enemy_pattern_1_left()
+            if CHOICE>0.125 and CHOICE<0.25:
+                self.NPC_tracker_2.enemy_pattern_2_left()
+            if CHOICE>0.25 and CHOICE<0.375:
+                self.NPC_tracker_2.enemy_pattern_3_left()
+            if CHOICE>0.375 and CHOICE<0.5:
+                self.NPC_tracker_2.enemy_pattern_4_left()
+            if CHOICE>0.5 and CHOICE<0.625:
+                self.NPC_tracker_2.enemy_pattern_1_right()
+            if CHOICE>0.625 and CHOICE<0.75:
+                self.NPC_tracker_2.enemy_pattern_2_right()
+            if CHOICE>0.75 and CHOICE<0.875:
+                self.NPC_tracker_2.enemy_pattern_3_right()
+            if CHOICE>0.875:
+                self.NPC_tracker_2.enemy_pattern_4_right()
 
 
         self.client_1.send(self.pack_state().encode())
-##        self.NPC_tracker_1.send_status(self.client_1)
-##        self.player_1.send_status(self.client_1)
-##        self.player_2.send_status(self.client_2)
+
 
     def main_loop_progressive(self):
         if 4*self.clock/3600<=1:
@@ -232,7 +256,10 @@ class Top_tracker:
     def pack_state(self):
         NPC_1_status = self.NPC_tracker_1.pack_status()
         Player_1_status = self.player_1.pack_status()
-        return '$'.join((NPC_1_status, Player_1_status))
+
+        NPC_2_status = self.NPC_tracker_2.pack_status()
+        
+        return '$'.join((NPC_1_status, Player_1_status, NPC_2_status, str(self.clock)))
         
 
 class NPC_tracker_serverside:
@@ -370,6 +397,7 @@ class NPC_tracker_serverside:
         ### IM PRETTY SURE THIS PIECE OF CRAP VIOLATES THE GENEVA CONVENTION
         ### THIS SHIT IS A SUPERFUND SITE NOW
         ### EITHER WAY YOU SHOULD PUT IT SOMEWHERE ELSE
+        sent_bullets = 0
         
         upd_spawning_bullets=[]
         for x,y,vx,vy,delay in self.spawning_bullets:
@@ -403,6 +431,7 @@ class NPC_tracker_serverside:
             while i<len(self.bullets):
                 bullet = self.bullets[i]
                 if (bullet[0]-x)**2+(bullet[1]-y)**2<R**2:
+                    sent_bullets+=1
                     self.bullets.remove(bullet)
                 else:
                     i+=1
@@ -493,6 +522,8 @@ class NPC_tracker_serverside:
                 self.bombs.append((x,y,R,ticks))
         self.delay_bombs = upd_delay_bombs
 
+        return sent_bullets
+
 
             
     def draw(self, surf):
@@ -527,7 +558,7 @@ class NPC_tracker_serverside:
         
         enemy_package = code1(self.enemies)
 
-        return 'NPC_STATUS'.join((shot_package, bullet_package, sp_bullet_package, bomb_package, enemy_package))
+        return 'NPC_STATUS'.join((shot_package, bullet_package, sp_bullet_package, bomb_package, enemy_package, str(self.score)))
         
 
     

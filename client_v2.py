@@ -68,7 +68,7 @@ class NPC_tracker_clientside:
         for shot in self.player_shots:
             pygame.draw.rect(surf, (255,255,255), pygame.Rect((shot[2]-6, shot[3]-6),(12,12)))
 
-    def recv_status(self, shots, bullets, sp_bullets, bombs, enemies):
+    def recv_status(self, shots, bullets, sp_bullets, bombs, enemies, score):
         self.player_shots = deque(decode1(shots))
         
         self.bullets = deque(decode1(bullets))
@@ -77,6 +77,8 @@ class NPC_tracker_clientside:
         self.bombs = deque(decode1(bombs))
 
         self.enemies = deque(decode1(enemies))
+
+        self.score = float(score)
 
 
 
@@ -119,9 +121,11 @@ class Player_clientside:
 
 
 ################
+clock=0
 running = True
 player_1 = Player_clientside()
 NPC_tracker_1 = NPC_tracker_clientside()
+NPC_tracker_2 = NPC_tracker_clientside()
 orders = deque([])
 
 
@@ -187,11 +191,14 @@ while running:
     surface_middle.fill((0,0,0))
     surface_right.fill((0,0,128))
 
-    player_1_status = text.render('LIVES:{}   BOMBS:{}   SCORE:n/a'.format(player_1.lives, player_1.bombs), False, (255,255,255))
+    player_1_status = text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(int(player_1.lives), int(player_1.bombs), int(NPC_tracker_1.score)), False, (255,255,255))
+    game_status = text.render('LEVEL:{:.3f}'.format(float(clock)/3600), False, (255,255,255))
     surface_left.blit(player_1_status, (10, 10))
+    surface_middle.blit(game_status, (0,0))
 
-    player_1.draw(surface_left)
     NPC_tracker_1.draw(surface_left)
+    NPC_tracker_2.draw(surface_right)
+    player_1.draw(surface_left)
     
     try:
         order = orders.popleft()
@@ -202,16 +209,18 @@ while running:
 
     ######### ONCE AGAIN I SHOULD PUT THIS SOMEWHERE. PLAYER CLASS? DISPLAY CLASS?
 
-    package = client_socket.recv(4096).decode('utf8')
-    npc,playa = package.split('$')
+    package = client_socket.recv(8192).decode('utf8')
+    npc_1,playa,npc_2,clock = package.split('$')
     
     coord, stat = playa.split('PLAYER_STATUS')
     player_1.recv_status(coord, stat)
 
-    shots,bullet,sp_bullet,bomb,enemy = npc.split('NPC_STATUS')
-    print(shots,bullet,sp_bullet,bomb,enemy, sep='\n', end='\n\n')
-    NPC_tracker_1.recv_status(shots,bullet,sp_bullet,bomb,enemy)
+    shots,bullet,sp_bullet,bomb,enemy,score = npc_1.split('NPC_STATUS')
+##    print(shots,bullet,sp_bullet,bomb,enemy, sep='\n', end='\n\n')
+    NPC_tracker_1.recv_status(shots,bullet,sp_bullet,bomb,enemy,score)
     
+    shots,bullet,sp_bullet,bomb,enemy,score = npc_2.split('NPC_STATUS')
+    NPC_tracker_2.recv_status(shots,bullet,sp_bullet,bomb,enemy,score)
 
     ##########
     
