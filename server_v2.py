@@ -7,6 +7,7 @@ import socket as sc
 from misc_func import line_move, circle_move
 
 from collections import deque
+from codndecode import code1
 from pygame.locals import *
 
 
@@ -67,6 +68,9 @@ class Game_phase_tracker:
                 TOP_TRACKER.main_loop_progressive()
                 self.screen.blit(self.surface, (0,0))
                 pygame.display.flip()
+                #fpsClock.tick(FPS)
+
+                
 
         self.phase='END'
     def end_phase(self):
@@ -117,7 +121,7 @@ class Top_tracker:
 
 
     def get_order_to_players(self):
-        self.orders_1.extend([self.client_1.recv(512).decode('utf8')])
+        self.orders_1.append(self.client_1.recv(512).decode('utf8'))
 ##        self.orders_2.extend([self.client_2.recv(512).decode('utf8')])
         try:
             order_1 = [self.orders_1.popleft()]
@@ -126,7 +130,7 @@ class Top_tracker:
 
 ##        try:
 ##            order_2 = [self.orders_2.popleft()]
-##        except:
+##        except: 
 ##            order_2 = ['0']
 ##            
         
@@ -180,7 +184,7 @@ class Top_tracker:
 ##            self.player_2.iframes = 30
 
         if self.player_1.firing: ## add customizable shots for players
-            self.NPC_tracker_1.add_shot(((10,10), self.player_1.x, self.player_1.y, 0, -10))
+            self.NPC_tracker_1.add_shot((10,10, self.player_1.x, self.player_1.y, 0, -10))
 ##        if self.player_2.firing:
 ##            self.NPC_tracker_2.add_shot(((10,10), self.player_2.x, self.player.y_2, 0, -10))
             
@@ -206,13 +210,9 @@ class Top_tracker:
                 self.NPC_tracker_1.enemy_pattern_4_right()
 
 
-
-##        if random.random()<0.4:   
-##            self.NPC_tracker_2.spawn_random_bullet_delay()
-##        if random.random()<0.1: 
-##            self.NPC_tracker_2.spawn_enemy_circle_set(10,100, 200, 100, -0.005)
-
-        self.player_1.send_status(self.client_1)
+        self.client_1.send(self.pack_state().encode())
+##        self.NPC_tracker_1.send_status(self.client_1)
+##        self.player_1.send_status(self.client_1)
 ##        self.player_2.send_status(self.client_2)
 
     def main_loop_progressive(self):
@@ -229,9 +229,15 @@ class Top_tracker:
         else:
             self.main_loop(0.7, ((-3,3),(3,7)), 0.01)
 
+    def pack_state(self):
+        NPC_1_status = self.NPC_tracker_1.pack_status()
+        Player_1_status = self.player_1.pack_status()
+        return '$'.join((NPC_1_status, Player_1_status))
+        
+
 class NPC_tracker_serverside:
     def __init__(self, PLAYER):
-        self.player_shots = [] ## a shot is ((size_x, size_y), x, y, vx, vy)
+        self.player_shots = [] ## a shot is (size_x, size_y, x, y, vx, vy)
 
         self.spawning_bullets = deque([]) ### each delay_bullet is (x,y,vx,vy, delay)
         self.bullets = deque([]) ## each bullet is (x,y,vx,vy)
@@ -364,7 +370,6 @@ class NPC_tracker_serverside:
         ### IM PRETTY SURE THIS PIECE OF CRAP VIOLATES THE GENEVA CONVENTION
         ### THIS SHIT IS A SUPERFUND SITE NOW
         ### EITHER WAY YOU SHOULD PUT IT SOMEWHERE ELSE
-##        print(self.enemies)
         
         upd_spawning_bullets=[]
         for x,y,vx,vy,delay in self.spawning_bullets:
@@ -434,22 +439,22 @@ class NPC_tracker_serverside:
         
         upd_shots = []
         for shot in self.player_shots:
-            kind, x, y, vx, vy = shot
+            size_x,size_y, x, y, vx, vy = shot
             x += vx
             y += vy
-            upd_shots.append((kind,x,y,vx,vy))
+            upd_shots.append((size_x,size_y,x,y,vx,vy))
         self.player_shots = upd_shots
         
         i=0
         while i<len(self.player_shots):
             shot = self.player_shots[i]
-            if shot[1]<self.left or shot[1]>self.right or shot[2]<0 or shot[2]>SCREEN_HEIGHT:
+            if shot[2]<self.left or shot[2]>self.right or shot[3]<0 or shot[3]>SCREEN_HEIGHT:
                 self.player_shots.remove(shot)
             else:
                 i+=1
                 
                 enemy_hitboxes = [pygame.Rect((enemy[0]-enm_side//2, enemy[1]-enm_side//2), (enm_side,enm_side)) for enemy in self.enemies]
-                shot_hitbox = pygame.Rect((shot[1]-shot[0][0]//2, shot[2]-shot[0][1]//2),(shot[0][0], shot[0][1]))
+                shot_hitbox = pygame.Rect((shot[2]-shot[0]//2, shot[3]-shot[1]//2),(shot[0], shot[0]))
 
                 a = shot_hitbox.collidelistall(enemy_hitboxes)
                 if a:
@@ -500,11 +505,8 @@ class NPC_tracker_serverside:
         for enemy in self.enemies:
             pygame.draw.circle(surf, (200,200,0), (int(enemy[0]), int(enemy[1])), 10)
         for shot in self.player_shots:
-            pygame.draw.rect(surf, (255,255,255), pygame.Rect((shot[1]-6, shot[2]-6),(12,12)))
-            
+            pygame.draw.rect(surf, (255,255,255), pygame.Rect((shot[2]-6, shot[3]-6),(12,12)))
 
-    #def hit_enemies(self):
-        
 
     def hit_player(self, player_hitbox):  ### player_hitbox is a square with coordinates of player, fixed side
         side = 4
@@ -513,6 +515,20 @@ class NPC_tracker_serverside:
         enemy_hitboxes = [pygame.Rect((enemy[0]-enm_side//2, enemy[1]-enm_side//2), (enm_side,enm_side)) for enemy in self.enemies]
 
         return bool((player_hitbox.collidelist(bullet_hitboxes)+1) + (player_hitbox.collidelist(enemy_hitboxes)+1))
+
+    def pack_status(self):
+        shot_package = code1(self.player_shots)
+        
+        bullet_package = code1(self.bullets)
+
+        sp_bullet_package = code1(self.spawning_bullets)
+
+        bomb_package = code1(self.bombs)
+        
+        enemy_package = code1(self.enemies)
+
+        return 'NPC_STATUS'.join((shot_package, bullet_package, sp_bullet_package, bomb_package, enemy_package))
+        
 
     
 class Player_serverside:
@@ -528,7 +544,6 @@ class Player_serverside:
         self.cooldown = 0
         self.lives = 3
         self.speed = 5
-        self.gauge = 0
         self.iframes = 0
         self.bomb_timeout = 0
         self.bombs = 5
@@ -590,7 +605,7 @@ class Player_serverside:
 
         self.firing = False
         order = self.order_queue.popleft()
-
+        print(order)
         ord_move, ord_shoot, ord_bomb, ord_focus, ord_spare_2 = order.split('+')
 
         if ord_focus=='FOCUS':
@@ -636,17 +651,18 @@ class Player_serverside:
             
         self.speed = 5
 
-        
 
-        
-
-    def send_status(self, connection):
+    def pack_status(self):
         '''
             send your own status through connection
         '''
         
-        package = str(self.x) + ',' + str(self.y)
-        connection.send(package.encode())
+        coord_package = str(self.x) + ',' + str(self.y)
+
+        stat_package = str(self.lives) + ',' + str(self.iframes) + ',' + str(self.bombs)
+
+        return 'PLAYER_STATUS'.join((coord_package, stat_package))
+##        connection.send(package.encode())
 
 
 #### MAYBE SEPARATE THIS SHIT INTO CONFIG AND SETUP COMMANDS
