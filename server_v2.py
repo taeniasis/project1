@@ -54,7 +54,8 @@ class Game_phase_tracker:
         NPC_TRACKER_1, NPC_TRACKER_2 = NPC_tracker_serverside(1), NPC_tracker_serverside(2)
 
         PLAYER_1 = Player_serverside(NPC_TRACKER_1)
-        TOP_TRACKER = Top_tracker(NPC_TRACKER_1, NPC_TRACKER_2, PLAYER_1, self.surface, self.surface_left, self.surface_right, self.surface_middle, self.client_1)
+        PLAYER_2 = Player_serverside(NPC_TRACKER_2)
+        TOP_TRACKER = Top_tracker(NPC_TRACKER_1, NPC_TRACKER_2, PLAYER_1, PLAYER_2, self.surface, self.surface_left, self.surface_right, self.surface_middle, self.client_1)
 
         while not TOP_TRACKER.loss:
             for event in pygame.event.get():
@@ -98,12 +99,15 @@ class Game_phase_tracker:
 
 
 class Top_tracker:
-    def __init__(self, NPC_tracker_1, NPC_tracker_2, Player_1, surf, left, right, middle, client_1):
+    def __init__(self, NPC_tracker_1, NPC_tracker_2, Player_1, Player_2, surf, left, right, middle, client_1):
         self.NPC_tracker_1 = NPC_tracker_1
         self.NPC_tracker_2 = NPC_tracker_2
         
         self.player_1 = Player_1
+        self.player_2 = Player_2
+        
         self.orders_1 = deque([])
+        self.orders_2 = deque([])
         
         self.surf = surf
         self.left = left
@@ -126,7 +130,7 @@ class Top_tracker:
         try:
             order_1 = [self.orders_1.popleft()]
         except:
-            order_1 = ['0']
+            order_1 = ['++++']
 
 ##        try:
 ##            order_2 = [self.orders_2.popleft()]
@@ -137,8 +141,8 @@ class Top_tracker:
         self.player_1.recv_orders(order_1)
         self.player_1.execute_order()
 
-##        self.player_2.recv_orders(order_2)
-##        self.player_2.execute_order()
+        self.player_2.recv_orders(['++++'])
+        self.player_2.execute_order()
         
     
     #def spawn_enemy_(...)
@@ -151,8 +155,8 @@ class Top_tracker:
 
         player_1_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(self.player_1.lives, self.player_1.bombs, self.NPC_tracker_1.score), False, (255,255,255))
         self.left.blit(player_1_status, (10, 10))
-##        player_2_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(self.player_2.lives, self.player_2.bombs, self.NPC_tracker_2.score), False, (255,255,255))
-##        self.right.blit(player_2_status, (10, 10))
+        player_2_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(self.player_2.lives, self.player_2.bombs, self.NPC_tracker_2.score), False, (255,255,255))
+        self.right.blit(player_2_status, (10, 10))
         diff_status = self.text.render('LEVEL:{:.3f}'.format(self.clock/3600), False, (255,255,255))
         self.middle.blit(diff_status, (0,0))
         
@@ -160,7 +164,7 @@ class Top_tracker:
         self.NPC_tracker_2.draw(self.right)
 
         self.player_1.draw(self.left)
-##        self.player_2.draw(self.right)
+        self.player_2.draw(self.right)
     
     def main_loop(self, BULLET_PROB, BULLET_INIT, ENEMY_PROB):
         self.clock+=1
@@ -181,23 +185,27 @@ class Top_tracker:
             self.player_1.iframes = 120
             self.player_1.lives-=1
             self.NPC_tracker_1.add_bomb((self.player_1.x, self.player_1.y, 300, 30))
-
         if self.NPC_tracker_1.score>self.NPC_tracker_1.bomb_score:
             self.player_1.bombs+=1
             self.NPC_tracker_1.bomb_score+=1000
             
-##        if self.NPC_tracker_2.hit_player(self.player_2.get_hitbox()):
-##            self.player_2.iframes = 30
+        if self.NPC_tracker_2.hit_player(self.player_2.get_hitbox()) and self.player_2.iframes<=0:
+            self.player_2.iframes = 120
+            self.player_2.lives-=1
+            self.NPC_tracker_2.add_bomb((self.player_2.x, self.player_2.y, 300, 30))
+        if self.NPC_tracker_2.score>self.NPC_tracker_2.bomb_score:
+            self.player_2.bombs+=1
+            self.NPC_tracker_2.bomb_score+=1000
 
         if self.player_1.firing: ## add customizable shots for players
             self.NPC_tracker_1.add_shot((10,10, self.player_1.x, self.player_1.y, 0, -10))
-##        if self.player_2.firing:
-##            self.NPC_tracker_2.add_shot(((10,10), self.player_2.x, self.player.y_2, 0, -10))
+        if self.player_2.firing:
+            self.NPC_tracker_2.add_shot(((10,10), self.player_2.x, self.player.y_2, 0, -10))
             
         if random.random()<BULLET_PROB:   #### CRAM THIS SHIT INTO A METHOD
             self.NPC_tracker_1.spawn_random_bullet_delay(BULLET_INIT[0],BULLET_INIT[1])
-        if random.random()<BULLET_PROB:
-            self.NPC_tracker_2.spawn_random_bullet_delay(BULLET_INIT[0],BULLET_INIT[1])
+##        if random.random()<BULLET_PROB:
+##            self.NPC_tracker_2.spawn_random_bullet_delay(BULLET_INIT[0],BULLET_INIT[1])
         if random.random()<ENEMY_PROB:  ##### THIS SHIT TOO
             CHOICE = random.random()
             if CHOICE<0.125:
@@ -257,9 +265,10 @@ class Top_tracker:
         NPC_1_status = self.NPC_tracker_1.pack_status()
         Player_1_status = self.player_1.pack_status()
 
+        Player_2_status = self.player_2.pack_status()
         NPC_2_status = self.NPC_tracker_2.pack_status()
         
-        return '$'.join((NPC_1_status, Player_1_status, NPC_2_status, str(self.clock)))
+        return '$'.join((NPC_1_status, Player_1_status, NPC_2_status, Player_2_status, str(self.clock)))
         
 
 class NPC_tracker_serverside:
@@ -636,7 +645,7 @@ class Player_serverside:
 
         self.firing = False
         order = self.order_queue.popleft()
-        print(order)
+        #print(order)
         ord_move, ord_shoot, ord_bomb, ord_focus, ord_spare_2 = order.split('+')
 
         if ord_focus=='FOCUS':
