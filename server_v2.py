@@ -21,7 +21,7 @@ class Game_phase_tracker:
     def __init__(self):
         pygame.init()
         pygame.display.set_caption('SERVER')
-        fpsClock=pygame.time.Clock()
+        self.fpsClock=pygame.time.Clock()
 
 
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -48,6 +48,12 @@ class Game_phase_tracker:
         self.server_socket_1.bind(('', 9101))
         self.server_socket_1.listen(1)
         self.client_1, self.client_address_1 = self.server_socket_1.accept()
+
+        self.server_socket_2 = sc.socket()
+        self.server_socket_2.bind(('', 9102))
+        #
+        #
+        
         self.phase='GAME'
         
     def game_phase(self):
@@ -55,35 +61,50 @@ class Game_phase_tracker:
 
         PLAYER_1 = Player_serverside(NPC_TRACKER_1)
         PLAYER_2 = Player_serverside(NPC_TRACKER_2)
-        TOP_TRACKER = Top_tracker(NPC_TRACKER_1, NPC_TRACKER_2, PLAYER_1, PLAYER_2, self.surface, self.surface_left, self.surface_right, self.surface_middle, self.client_1)
+        self.TOP_TRACKER = Top_tracker(NPC_TRACKER_1, NPC_TRACKER_2, PLAYER_1, PLAYER_2, self.surface, self.surface_left, self.surface_right, self.surface_middle, self.client_1)
 
-        while not TOP_TRACKER.loss:
+        while not self.TOP_TRACKER.loss:
             for event in pygame.event.get():
                 if event.type == QUIT:
                     pygame.quit()
                     sys.exit()
                     self.server_socket.close()
 
-            if not TOP_TRACKER.loss:
-                TOP_TRACKER.display_all()
-                TOP_TRACKER.main_loop_progressive()
+            if not self.TOP_TRACKER.loss:
+                self.TOP_TRACKER.display_all()
+                self.TOP_TRACKER.main_loop_progressive()
                 self.screen.blit(self.surface, (0,0))
                 pygame.display.flip()
-                #fpsClock.tick(FPS)
+                self.fpsClock.tick(FPS)
 
                 
 
         self.phase='END'
     def end_phase(self):
-        title_text = pygame.font.SysFont('Calibri', 40)
-        last_text = title_text.render('Player 1 lost', False, (255,255,255))
-
-        for i in range(300):
-            self.surface.fill((0,0,128))
-            self.surface.blit(last_text, (SCREEN_WIDTH//2-100, SCREEN_HEIGHT//2))
-            self.screen.blit(self.surface, (0,0))
-
-            pygame.display.flip()
+##        title_text = pygame.font.SysFont('Calibri', 40)
+##        if self.TOP_TRACKER.loss==1:
+##            last_text = title_text.render('Player 2 won', False, (255,255,255))
+##        if self.TOP_TRACKER.loss==2:
+##            last_text = title_text.render('Player 1 won', False, (255,255,255))
+##        elif self.TOP_TRACKER.loss==3:
+##            last_text = title_text.render('DRAW', False, (255,255,255))
+##        else:
+##            last_text = title_text.render('SOMETHING WENT WRONG', False, (255,255,255))
+##
+##        for i in range(300):
+##            if self.TOP_TRACKER.loss==1:
+##                self.surface.fill((0,0,128))
+##            elif self.TOP_TRACKER.loss==2:
+##                self.surface.fill((128,0,0))
+##            elif self.TOP_TRACKER.loss==3:
+##                self.surface.fill((200,0,200))
+##            else:
+##                self.surface.fill((0,0,0))
+##                
+##            self.surface.blit(last_text, (SCREEN_WIDTH//2-100, SCREEN_HEIGHT//2))
+##            self.screen.blit(self.surface, (0,0))
+##
+##            pygame.display.flip()
 
         
         self.server_socket_1.close()
@@ -117,7 +138,7 @@ class Top_tracker:
         self.client_1 = client_1
 
         self.clock = 0
-        self.loss = False
+        self.loss = 0
         pygame.font.init()
         self.text = pygame.font.SysFont('Calibri', 20)
 
@@ -168,8 +189,13 @@ class Top_tracker:
     
     def main_loop(self, BULLET_PROB, BULLET_INIT, ENEMY_PROB):
         self.clock+=1
-        if self.player_1.lives<=0:
-            self.loss = True
+        
+        if self.player_1.lives<0 and self.player_2.lives>=0:
+            self.loss = 1
+        elif self.player_1.lives>=0 and self.player_2.lives<0:
+            self.loss = 2
+        elif self.player_1.lives<0 and self.player_2.lives<0:
+            self.loss = 3 ## a draw - shouldn't be possible
             
         sent_to_2 = self.NPC_tracker_1.update()
         sent_to_1 = self.NPC_tracker_2.update()
@@ -268,7 +294,7 @@ class Top_tracker:
         Player_2_status = self.player_2.pack_status()
         NPC_2_status = self.NPC_tracker_2.pack_status()
         
-        return '$'.join((NPC_1_status, Player_1_status, NPC_2_status, Player_2_status, str(self.clock)))
+        return '$'.join((NPC_1_status, Player_1_status, NPC_2_status, Player_2_status, str(self.clock), str(self.loss)))
         
 
 class NPC_tracker_serverside:
@@ -574,7 +600,7 @@ class NPC_tracker_serverside:
 class Player_serverside:
     def __init__(self, bullet_tracker):
         self.x = SCREEN_WIDTH // 4
-        self.y = SCREEN_HEIGHT // 2
+        self.y = 7 * SCREEN_HEIGHT // 8
         
         self.L = SCREEN_WIDTH//2-50
         self.H = SCREEN_HEIGHT
