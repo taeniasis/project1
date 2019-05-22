@@ -146,17 +146,10 @@ while running:
     ##### ALSO THE INPUT/ORDERS MAY BE BETTER INSIDE A PLAYER_CLIENTSIDE METHOD
     keys = pygame.key.get_pressed()
 
-    ord_move = ''
-    ord_shoot = ''
-    ord_bomb = ''
-    ord_focus = ''
-    ord_spare_2 = ''
-
-
-    ord_move = bot.bot0(player_1, NPC_tracker_1)
+    ord_move, ord_shoot, ord_bomb, ord_focus, ord_spare_2 = bot.bot0(player_1, NPC_tracker_1)
 
 ##    if keys[K_z]:
-    ord_shoot='SHOOT'
+##    ord_shoot='SHOOT'
 
 ##    if keys[K_x]:
 ##        ord_bomb='BOMB'
