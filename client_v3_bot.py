@@ -98,9 +98,9 @@ class Game_phase_tracker_clientside:
             ord_spare_2 = ''
 
             if self.player_id=='1':
-                ord_move = bot.bot0(player_1, NPC_tracker_1)
+                ord_move, ord_shoot, ord_bomb, ord_focus, ord_spare_2 = bot.bot0(player_1, NPC_tracker_1)
             elif self.player_id=='2':
-                ord_move = bot.bot0(player_2, NPC_tracker_2)
+                ord_move, ord_shoot, ord_bomb, ord_focus, ord_spare_2 = bot.bot0(player_2, NPC_tracker_2)
             ord_shoot='SHOOT'
             orders.append('{}+{}+{}+{}+{}'.format(ord_move, ord_shoot, ord_bomb, ord_focus, ord_spare_2))
             
@@ -277,122 +277,4 @@ a.game_phase()
 a.end_phase()
 
 
-################
-##clock=0
-##running = True
-##player_1 = Player_clientside()
-##player_2 = Player_clientside()
-##NPC_tracker_1 = NPC_tracker_clientside()
-##NPC_tracker_2 = NPC_tracker_clientside()
-##orders = deque([])
 ##
-##
-####### MAYBE MAKE THE DISPLAY A SEPARATE OBJECT..?
-####### MAKE A FANCY-ASS IF NAME==__MAIN__ CRAP OF THIS
-##while running:
-##    
-###### THIS BABY MAY NEED A SEPARATE FUNCTION
-##    for event in pygame.event.get():
-##        if event.type == QUIT:
-##            pygame.quit()
-##            sys.exit()
-##            client_socket.close()
-##            running = False
-##            break
-
-
-    
-    #### NOW THIS IS GOING IN MY CRINGE COMPILATION
-    ##### SWEEP THIS BULLSHIT UNDER THE RUG WITH A FUNCTION OR A CLASS
-    ##### ALSO THE INPUT/ORDERS MAY BE BETTER INSIDE A PLAYER_CLIENTSIDE METHOD
-##    keys = pygame.key.get_pressed()
-##
-##    ord_move = ''
-##    ord_shoot = ''
-##    ord_bomb = ''
-##    ord_focus = ''
-##    ord_spare_2 = ''
-##
-##    
-##    if keys[K_UP] and not (keys[K_LEFT] or keys[K_RIGHT] or keys[K_DOWN]):
-##        ord_move='UP'
-##    elif keys[K_DOWN] and not (keys[K_LEFT] or keys[K_RIGHT] or keys[K_UP]):
-##        ord_move='DOWN'
-##    elif keys[K_LEFT] and not (keys[K_UP] or keys[K_DOWN] or keys[K_RIGHT]):
-##        ord_move='LEFT'
-##    elif keys[K_RIGHT] and not (keys[K_UP] or keys[K_DOWN] or keys[K_LEFT]):
-##        ord_move='RIGHT'
-##    elif keys[K_UP] and keys[K_LEFT]:
-##        ord_move='UP-LEFT'
-##    elif keys[K_UP] and keys[K_RIGHT]:
-##        ord_move='UP-RIGHT'
-##    elif keys[K_DOWN] and keys[K_LEFT]:
-##        ord_move='DOWN-LEFT'
-##    elif keys[K_DOWN] and keys[K_RIGHT]:
-##        ord_move='DOWN-RIGHT'
-##
-##    if keys[K_z]:
-##        ord_shoot='SHOOT'
-##
-##    if keys[K_x]:
-##        ord_bomb='BOMB'
-##
-##    if keys[K_LSHIFT]:
-##        ord_focus='FOCUS'
-##
-##    
-##    orders.append('{}+{}+{}+{}+{}'.format(ord_move, ord_shoot, ord_bomb, ord_focus, ord_spare_2))
-##
-##    ####### PUT THIS IN A SEPARATE FUNCTION - THOSE SPAGHETTI ARE PAINFUL TO LOOK AT
-##
-##    surface_left.fill((128,0,0))
-##    surface_middle.fill((0,0,0))
-##    surface_right.fill((0,0,128))
-##
-##    player_1_status = text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(int(player_1.lives), int(player_1.bombs), int(NPC_tracker_1.score)), False, (255,255,255))
-##    player_2_status = text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(int(player_2.lives), int(player_2.bombs), int(NPC_tracker_2.score)), False, (255,255,255))
-##    game_status = text.render('LEVEL:{:.3f}'.format(float(clock)/3600), False, (255,255,255))
-##    surface_left.blit(player_1_status, (10, 10))
-##    surface_right.blit(player_2_status, (10, 10))
-##    surface_middle.blit(game_status, (0,0))
-##
-##    NPC_tracker_1.draw(surface_left)
-##    NPC_tracker_2.draw(surface_right)
-##    player_1.draw(surface_left)
-##    player_2.draw(surface_right)
-##    
-##    try:
-##        order = orders.popleft()
-##    except:
-##        order = '++++'  
-##    client_socket.send(order.encode())
-##    ################
-##
-##    ######### ONCE AGAIN I SHOULD PUT THIS SOMEWHERE. PLAYER CLASS? DISPLAY CLASS?
-##
-##    package = client_socket.recv(8192).decode('utf8')
-##    npc_1,playa_1,npc_2,playa_2,clock = package.split('$')
-##    
-##    coord, stat = playa_1.split('PLAYER_STATUS')
-##    player_1.recv_status(coord, stat)
-##
-##    coord, stat = playa_2.split('PLAYER_STATUS')
-##    player_2.recv_status(coord, stat)
-##
-##    shots,bullet,sp_bullet,bomb,enemy,score = npc_1.split('NPC_STATUS')
-##    NPC_tracker_1.recv_status(shots,bullet,sp_bullet,bomb,enemy,score)
-##    
-##    shots,bullet,sp_bullet,bomb,enemy,score = npc_2.split('NPC_STATUS')
-##    NPC_tracker_2.recv_status(shots,bullet,sp_bullet,bomb,enemy,score)
-##
-##    ##########
-##    
-##
-##    ##### THIS CRAP IS JUST WEIRD
-##    screen.blit(surface, (0,0))
-##    pygame.display.flip()
-
-    
-##    fpsClock.tick(FPS)
-    
-client_socket.close()
