@@ -133,9 +133,9 @@ class Game_phase_tracker_clientside:
 
 
 
-            self.surface_left.fill((128,0,0))
+            self.surface_left.fill((255, 179, 179))
             self.surface_middle.fill((0,0,0))
-            self.surface_right.fill((0,0,128))
+            self.surface_right.fill((179, 179, 255))
 
             player_1_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(int(player_1.lives), int(player_1.bombs), int(NPC_tracker_1.score)), False, (255,255,255))
             player_2_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(int(player_2.lives), int(player_2.bombs), int(NPC_tracker_2.score)), False, (255,255,255))
@@ -193,9 +193,9 @@ class Game_phase_tracker_clientside:
 
         for i in range(300):
             if self.loss==1:
-                self.surface.fill((0,0,128))
+                self.surface.fill((179, 179, 255))
             elif self.loss==2:
-                self.surface.fill((128,0,0))
+                self.surface.fill((255, 179, 179))
             elif self.loss==3:
                 self.surface.fill((200,0,200))
             else:

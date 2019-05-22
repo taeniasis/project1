@@ -51,8 +51,9 @@ class Game_phase_tracker:
 
         self.server_socket_2 = sc.socket()
         self.server_socket_2.bind(('', 9102))
-        #
-        #
+        self.server_socket_2.listen(1)
+        self.client_2, self.client_address_2 = self.server_socket_2.accept()
+        
         
         self.phase='GAME'
         
@@ -61,7 +62,7 @@ class Game_phase_tracker:
 
         PLAYER_1 = Player_serverside(NPC_TRACKER_1)
         PLAYER_2 = Player_serverside(NPC_TRACKER_2)
-        self.TOP_TRACKER = Top_tracker(NPC_TRACKER_1, NPC_TRACKER_2, PLAYER_1, PLAYER_2, self.surface, self.surface_left, self.surface_right, self.surface_middle, self.client_1)
+        self.TOP_TRACKER = Top_tracker(NPC_TRACKER_1, NPC_TRACKER_2, PLAYER_1, PLAYER_2, self.surface, self.surface_left, self.surface_right, self.surface_middle, self.client_1, self.client_2)
 
         while not self.TOP_TRACKER.loss:
             for event in pygame.event.get():
@@ -120,7 +121,7 @@ class Game_phase_tracker:
 
 
 class Top_tracker:
-    def __init__(self, NPC_tracker_1, NPC_tracker_2, Player_1, Player_2, surf, left, right, middle, client_1):
+    def __init__(self, NPC_tracker_1, NPC_tracker_2, Player_1, Player_2, surf, left, right, middle, client_1, client_2):
         self.NPC_tracker_1 = NPC_tracker_1
         self.NPC_tracker_2 = NPC_tracker_2
         
@@ -136,6 +137,7 @@ class Top_tracker:
         self.middle = middle
         
         self.client_1 = client_1
+        self.client_2 = client_2
 
         self.clock = 0
         self.loss = 0
@@ -147,22 +149,22 @@ class Top_tracker:
 
     def get_order_to_players(self):
         self.orders_1.append(self.client_1.recv(512).decode('utf8'))
-##        self.orders_2.extend([self.client_2.recv(512).decode('utf8')])
+        self.orders_2.extend([self.client_2.recv(512).decode('utf8')])
         try:
             order_1 = [self.orders_1.popleft()]
         except:
             order_1 = ['++++']
 
-##        try:
-##            order_2 = [self.orders_2.popleft()]
-##        except: 
-##            order_2 = ['0']
-##            
+        try:
+            order_2 = [self.orders_2.popleft()]
+        except: 
+            order_2 = ['++++']
+            
         
         self.player_1.recv_orders(order_1)
         self.player_1.execute_order()
 
-        self.player_2.recv_orders(['++++'])
+        self.player_2.recv_orders(order_2)
         self.player_2.execute_order()
         
     
@@ -170,9 +172,9 @@ class Top_tracker:
     #def spawn_bullet_(...)
 
     def display_all(self):
-        self.left.fill((128,0,0))
+        self.left.fill((255, 179, 179))
         self.middle.fill((0,0,0))
-        self.right.fill((0,0,128))
+        self.right.fill((179, 179, 255))
 
         player_1_status = self.text.render('LIVES:{}   BOMBS:{}   SCORE:{}'.format(self.player_1.lives, self.player_1.bombs, self.NPC_tracker_1.score), False, (255,255,255))
         self.left.blit(player_1_status, (10, 10))
@@ -226,12 +228,12 @@ class Top_tracker:
         if self.player_1.firing: ## add customizable shots for players
             self.NPC_tracker_1.add_shot((10,10, self.player_1.x, self.player_1.y, 0, -10))
         if self.player_2.firing:
-            self.NPC_tracker_2.add_shot(((10,10), self.player_2.x, self.player.y_2, 0, -10))
+            self.NPC_tracker_2.add_shot((10,10, self.player_2.x, self.player_2.y, 0, -10))
             
         if random.random()<BULLET_PROB:   #### CRAM THIS SHIT INTO A METHOD
             self.NPC_tracker_1.spawn_random_bullet_delay(BULLET_INIT[0],BULLET_INIT[1])
-##        if random.random()<BULLET_PROB:
-##            self.NPC_tracker_2.spawn_random_bullet_delay(BULLET_INIT[0],BULLET_INIT[1])
+        if random.random()<BULLET_PROB:
+            self.NPC_tracker_2.spawn_random_bullet_delay(BULLET_INIT[0],BULLET_INIT[1])
         if random.random()<ENEMY_PROB:  ##### THIS SHIT TOO
             CHOICE = random.random()
             if CHOICE<0.125:
@@ -271,6 +273,7 @@ class Top_tracker:
 
 
         self.client_1.send(self.pack_state().encode())
+        self.client_2.send(self.pack_state().encode())
 
 
     def main_loop_progressive(self):
