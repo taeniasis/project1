@@ -53,38 +53,59 @@ def evade_speed(bullets, x, y):
             bullet = i[0]
     if len(bullet) >0:
         return (-bullet[3]/(k**0.5), bullet[2]/(k**0.5))
-    return (2, 2)
+    return (0, 0)
 
 """
 now let's transform direction into a command
 """
+c45 = 2**0.5 / 2
 
-def command(direction):
-    if (direction[0] <= 0.5) and (direction[0] >= -0.5) and (direction[1] > 0):
-        return 'UP'
-    elif (direction[0] <= 0.5) and (direction[0] >= -0.5) and (direction[1] < 0):
+def command(direction, x, y):
+
+    if x < 10:
+        return 'RIGHT'
+    elif x > 340:
+        return'LEFT'
+    elif y < 10:
         return 'DOWN'
-    elif (direction[1] <= 0.5) and (direction[1] >= -0.5) and (direction[0] < 0):
+    elif y > 5900:
+        return 'UP'
+    if (direction[0] <= c45) and (direction[0] >= -c45) and (direction[1] > 0):
+        return 'UP'
+    elif (direction[0] <= c45) and (direction[0] >= -c45) and (direction[1] < 0):
+        return 'DOWN'
+    elif (direction[1] <= c45) and (direction[1] >= -c45) and (direction[0] < 0):
          return'LEFT'
-    elif (direction[1] <= 0.5) and (direction[1] >= -0.5) and (direction[0] > 0):
+    elif (direction[1] <= c45) and (direction[1] >= -c45) and (direction[0] > 0):
          return 'RIGHT'
-    elif (direction[0] < -0.5) and (direction[1] <= -0.5):
-         return 'UP-LEFT'
-    elif (direction[0] > 0.5) and (direction[1] <= -0.5):
-        return 'UP-RIGHT'
-    elif (direction[0] < -0.5) and (direction[1] > 0.5):
-        return 'DOWN-LEFT'
-    elif (direction[0] > 0.5) and (direction[1] > -0.5):
-        return 'DOWN-RIGHT'
+
+##    elif (direction[0] < -0.5) and (direction[1] <= -0.5):
+##         return 'UP-LEFT'
+##    elif (direction[0] > 0.5) and (direction[1] <= -0.5):
+##        return 'UP-RIGHT'
+##    elif (direction[0] < -0.5) and (direction[1] > 0.5):
+##        return 'DOWN-LEFT'
+##    elif (direction[0] > 0.5) and (direction[1] > -0.5):
+##        return 'DOWN-RIGHT'
     return ''
 
 """
-now combine all previon functions into 1 final form:
+now combine all previous functions into 1 final form:
 """
 
 def bot0(player, bullet_tracker):
+    ord_move = ''
     x, y = player.x, player.y
     bullets = bullet_tracker.bullets
+    enemies = bullet_tracker.enemies
     targets = choose_targets(bullets, dist1, x, y)
     dir = evade_speed(targets, x, y)
-    return command(dir)
+    ord_move = command(dir, x, y)
+    ord_shoot='SHOOT'
+    ord_bomb = ''
+    doom =  len(choose_targets(bullets, 200 *c45, x, y)) + len(choose_targets(bullets,400, x, y))
+    if doom > 0:
+        ord_bomb = 'BOMB'
+    ord_focus = ''
+    ord_spare_2 = ''
+    return ord_move, ord_shoot, ord_bomb, ord_focus, ord_spare_2
