@@ -128,8 +128,11 @@ class Game_phase_tracker_clientside:
             try:
                 order = orders.popleft()
             except:
-                order = '++++'  
+                order = '++++'
+##            try:
             self.client_socket.send(order.encode())
+##            except:
+##                print('Да еба боба')
 
 
 
@@ -161,20 +164,40 @@ class Game_phase_tracker_clientside:
 
 
             package = self.client_socket.recv(8192).decode('utf8')
-            npc_1,playa_1,npc_2,playa_2,clock, loss = package.split('$')
-            self.loss = int(loss)
-            
+            try:
+                npc_1,playa_1,npc_2,playa_2,clock, loss = package.split('$')
+                self.loss = int(loss)
+                
+            except:
+                time.sleep(0.01)
+                print('БЛЯ ЛАГИ')
+
             coord, stat = playa_1.split('PLAYER_STATUS')
             player_1.recv_status(coord, stat)
 
             coord, stat = playa_2.split('PLAYER_STATUS')
             player_2.recv_status(coord, stat)
 
+            
             shots,bullet,sp_bullet,bomb,enemy,score = npc_1.split('NPC_STATUS')
             NPC_tracker_1.recv_status(shots,bullet,sp_bullet,bomb,enemy,score)
             
             shots,bullet,sp_bullet,bomb,enemy,score = npc_2.split('NPC_STATUS')
             NPC_tracker_2.recv_status(shots,bullet,sp_bullet,bomb,enemy,score)
+
+            
+##            coord, stat = playa_1.split('PLAYER_STATUS')
+##            player_1.recv_status(coord, stat)
+##
+##            coord, stat = playa_2.split('PLAYER_STATUS')
+##            player_2.recv_status(coord, stat)
+##
+##            
+##            shots,bullet,sp_bullet,bomb,enemy,score = npc_1.split('NPC_STATUS')
+##            NPC_tracker_1.recv_status(shots,bullet,sp_bullet,bomb,enemy,score)
+##            
+##            shots,bullet,sp_bullet,bomb,enemy,score = npc_2.split('NPC_STATUS')
+##            NPC_tracker_2.recv_status(shots,bullet,sp_bullet,bomb,enemy,score)
 
 
 

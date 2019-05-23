@@ -11,11 +11,10 @@ from codndecode import code1
 from pygame.locals import *
 
 
-
 ###### MAYBE PUT THESE OBJECTS INTO A SEPARATE FILE TOO
 ###### LIKE A MODULE
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
-FPS = 60
+FPS = 120
 
 class Game_phase_tracker:
     def __init__(self):
@@ -119,7 +118,6 @@ class Game_phase_tracker:
 ##  THIS BULLSHIT I'LL USE FOR TRACKING WHAT KIND OF DISPLAY TO DRAW
 ## AS IN: MAIN MENU, CHAR SELECT, GAME, RESULTS AND SO ON
 
-
 class Top_tracker:
     def __init__(self, NPC_tracker_1, NPC_tracker_2, Player_1, Player_2, surf, left, right, middle, client_1, client_2):
         self.NPC_tracker_1 = NPC_tracker_1
@@ -148,8 +146,13 @@ class Top_tracker:
 
 
     def get_order_to_players(self):
-        self.orders_1.append(self.client_1.recv(512).decode('utf8'))
-        self.orders_2.extend([self.client_2.recv(512).decode('utf8')])
+        try:
+            self.orders_1.append(self.client_1.recv(64).decode('utf8'))
+            self.orders_2.append(self.client_2.recv(64).decode('utf8'))
+        except:
+            self.orders_1.append('++++')
+            self.orders_2.append('++++')
+            time.sleep(0.01)
         try:
             order_1 = [self.orders_1.popleft()]
         except:
@@ -272,9 +275,11 @@ class Top_tracker:
                 self.NPC_tracker_2.enemy_pattern_4_right()
 
 
-        self.client_1.send(self.pack_state().encode())
-        self.client_2.send(self.pack_state().encode())
-
+        try:
+            self.client_1.send(self.pack_state().encode())
+            self.client_2.send(self.pack_state().encode())
+        except:
+            print('Ай мля я маслину поймал')
 
     def main_loop_progressive(self):
         if 4*self.clock/3600<=1:
@@ -599,7 +604,6 @@ class NPC_tracker_serverside:
         return 'NPC_STATUS'.join((shot_package, bullet_package, sp_bullet_package, bomb_package, enemy_package, str(self.score)))
         
 
-    
 class Player_serverside:
     def __init__(self, bullet_tracker):
         self.x = SCREEN_WIDTH // 4
@@ -787,11 +791,11 @@ class Player_serverside:
 ##server_socket.close()
 
 
-
-a = Game_phase_tracker()
-a.prep_phase()
-a.game_phase()
-a.end_phase()
+with fuckit:
+    a = Game_phase_tracker()
+    a.prep_phase()
+    a.game_phase()
+    a.end_phase()
 
 
 
